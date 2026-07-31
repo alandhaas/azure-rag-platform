@@ -82,6 +82,7 @@ class QdrantVectorStore:
                 url=config.url,
                 api_key=config.api_key,
                 timeout=config.request_timeout_seconds,
+                check_compatibility=False,
             ),
         )
 
