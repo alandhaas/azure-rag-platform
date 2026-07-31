@@ -58,5 +58,27 @@ services:
           -d "{\"vectors\":{\"size\":$${QDRANT_VECTOR_SIZE},\"distance\":\"Cosine\"}}"
     restart: "no"
 
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:3.36.0
+    command:
+      - azurite
+      - --blobHost
+      - 0.0.0.0
+      - --queueHost
+      - 0.0.0.0
+      - --tableHost
+      - 0.0.0.0
+      - --location
+      - /data
+      - --skipApiVersionCheck
+    ports:
+      - "10000:10000"
+      - "10001:10001"
+      - "10002:10002"
+    volumes:
+      - azurite_data:/data
+    restart: unless-stopped
+
 volumes:
+  azurite_data:
   qdrant_storage:

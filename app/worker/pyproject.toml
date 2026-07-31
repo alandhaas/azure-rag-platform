@@ -1,0 +1,17 @@
+[project]
+name = "rag-worker"
+version = "0.1.0"
+description = "Azure Functions worker for asynchronous RAG ingestion."
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "azure-functions>=1.24.0",
+    "rag-core",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rag_worker"]

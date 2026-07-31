@@ -1,9 +1,11 @@
-"""Logging configuration for the API application."""
+"""Logging configuration for the worker application."""
+
+from __future__ import annotations
 
 import logging
 from typing import Final
 
-from rag_api.observability.context import request_id_context
+from rag_worker.observability.context import request_id_context
 
 LOG_FORMAT: Final = (
     "%(asctime)s %(levelname)s %(name)s request_id=%(request_id)s %(message)s"

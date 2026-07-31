@@ -7,6 +7,7 @@ requires-python = ">=3.14"
 dependencies = [
     "rag-api",
     "rag-core",
+    "rag-worker",
 ]
 
 [dependency-groups]
@@ -23,10 +24,12 @@ package = false
 [tool.uv.sources]
 rag-api = { workspace = true }
 rag-core = { workspace = true }
+rag-worker = { workspace = true }
 
 [tool.uv.workspace]
 members = [
     "app/api",
+    "app/worker",
     "packages/rag_core",
 ]
 
@@ -51,11 +54,14 @@ typeCheckingMode = "strict"
 include = [
     "app/api/src",
     "app/api/tests",
+    "app/worker/src",
+    "app/worker/tests",
     "packages/rag_core/src",
     "packages/rag_core/tests",
 ]
 extraPaths = [
     "app/api/src",
+    "app/worker/src",
     "packages/rag_core/src",
 ]
 exclude = [
