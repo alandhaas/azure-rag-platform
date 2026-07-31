@@ -2,6 +2,7 @@ from typing import Any, cast
 
 import httpx
 from fastapi.testclient import TestClient
+from rag_api.config import ApiSettings
 from rag_api.main import create_app
 
 
@@ -26,4 +27,4 @@ def test_readiness_probe_returns_ok() -> None:
 
 
 def _test_client() -> Any:
-    return TestClient(create_app())
+    return TestClient(create_app(ApiSettings()))

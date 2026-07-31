@@ -4,6 +4,7 @@ from typing import Any, cast
 import httpx
 import pytest
 from fastapi.testclient import TestClient
+from rag_api.config import ApiSettings
 from rag_api.main import create_app
 
 
@@ -52,4 +53,4 @@ def test_request_completion_is_logged_with_request_id(caplog: pytest.LogCaptureF
 
 
 def _test_client() -> Any:
-    return TestClient(create_app())
+    return TestClient(create_app(ApiSettings()))
