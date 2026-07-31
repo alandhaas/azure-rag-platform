@@ -1,0 +1,41 @@
+[project]
+name = "azure-rag-platform"
+version = "0.1.0"
+description = "Cloud-native Azure RAG platform with separate application, shared RAG, and infrastructure concerns."
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.403",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
+    "ruff>=0.12.5",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = [
+    "app/api/tests",
+    "app/worker/tests",
+    "packages/rag_core/tests",
+]
+
+[tool.pyright]
+pythonVersion = "3.14"
+typeCheckingMode = "strict"
+exclude = [
+    ".venv",
+    "**/__pycache__",
+]
