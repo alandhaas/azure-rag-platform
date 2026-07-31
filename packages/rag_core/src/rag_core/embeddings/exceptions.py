@@ -5,6 +5,10 @@ class EmbeddingError(Exception):
     """Base class for embedding domain errors."""
 
 
+class EmbeddingConfigurationError(EmbeddingError):
+    """Raised when an embedding provider is missing required configuration."""
+
+
 class EmbeddingValidationError(EmbeddingError, ValueError):
     """Raised when embedding inputs or provider outputs are invalid."""
 
@@ -19,3 +23,7 @@ class EmbeddingDimensionError(EmbeddingValidationError):
 
 class EmbeddingBatchSizeError(EmbeddingValidationError):
     """Raised when a batch size is outside the supported range."""
+
+
+class EmbeddingProviderError(EmbeddingError):
+    """Raised when an embedding provider returns an invalid response or request error."""
