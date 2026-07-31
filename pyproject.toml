@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Cloud-native Azure RAG platform with separate application, shared RAG, and infrastructure concerns."
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "rag-core",
+]
 
 [dependency-groups]
 dev = [
@@ -16,6 +18,14 @@ dev = [
 
 [tool.uv]
 package = false
+
+[tool.uv.sources]
+rag-core = { workspace = true }
+
+[tool.uv.workspace]
+members = [
+    "packages/rag_core",
+]
 
 [tool.ruff]
 line-length = 100
@@ -35,6 +45,13 @@ testpaths = [
 [tool.pyright]
 pythonVersion = "3.14"
 typeCheckingMode = "strict"
+include = [
+    "packages/rag_core/src",
+    "packages/rag_core/tests",
+]
+extraPaths = [
+    "packages/rag_core/src",
+]
 exclude = [
     ".venv",
     "**/__pycache__",

@@ -2,10 +2,19 @@ version = 1
 revision = 3
 requires-python = ">=3.14"
 
+[manifest]
+members = [
+    "azure-rag-platform",
+    "rag-core",
+]
+
 [[package]]
 name = "azure-rag-platform"
 version = "0.1.0"
 source = { virtual = "." }
+dependencies = [
+    { name = "rag-core" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -16,6 +25,7 @@ dev = [
 ]
 
 [package.metadata]
+requires-dist = [{ name = "rag-core", editable = "packages/rag_core" }]
 
 [package.metadata.requires-dev]
 dev = [
@@ -119,6 +129,11 @@ sdist = { url = "https://files.pythonhosted.org/packages/43/7c/d36d04db312ecf429
 wheels = [
     { url = "https://files.pythonhosted.org/packages/03/e2/08a497ef684b88559c9cc5f4ad53a37e7b99e727094a86d6ea32536d5d3c/pytest_asyncio-1.4.0-py3-none-any.whl", hash = "sha256:933ca923a23075a87fb7070c0ec272a6848489824d887c85c812670932835aa1", size = 16930, upload-time = "2026-05-26T09:56:02.576Z" },
 ]
+
+[[package]]
+name = "rag-core"
+version = "0.1.0"
+source = { editable = "packages/rag_core" }
 
 [[package]]
 name = "ruff"
