@@ -5,6 +5,7 @@ description = "Cloud-native Azure RAG platform with separate application, shared
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "rag-api",
     "rag-core",
 ]
 
@@ -20,10 +21,12 @@ dev = [
 package = false
 
 [tool.uv.sources]
+rag-api = { workspace = true }
 rag-core = { workspace = true }
 
 [tool.uv.workspace]
 members = [
+    "app/api",
     "packages/rag_core",
 ]
 
@@ -46,10 +49,13 @@ testpaths = [
 pythonVersion = "3.14"
 typeCheckingMode = "strict"
 include = [
+    "app/api/src",
+    "app/api/tests",
     "packages/rag_core/src",
     "packages/rag_core/tests",
 ]
 extraPaths = [
+    "app/api/src",
     "packages/rag_core/src",
 ]
 exclude = [
