@@ -7,6 +7,7 @@ from rag_api.config import ApiSettings, get_settings
 from rag_api.observability.logging import configure_logging
 from rag_api.observability.middleware import RequestLoggingMiddleware
 from rag_api.routes.health import router as health_router
+from rag_api.routes.queries import router as queries_router
 
 
 async def redirect_to_docs() -> RedirectResponse:
@@ -32,6 +33,7 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
     app.state.settings = settings
     app.add_middleware(RequestLoggingMiddleware)
     app.include_router(health_router)
+    app.include_router(queries_router)
     app.add_api_route("/", redirect_to_docs, include_in_schema=False)
 
     return app
