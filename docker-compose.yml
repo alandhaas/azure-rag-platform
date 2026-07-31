@@ -1,0 +1,62 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: app/api/Dockerfile
+    image: azure-rag-platform-api:local
+    depends_on:
+      qdrant-init:
+        condition: service_completed_successfully
+    environment:
+      APP_ENV: local
+      LOG_LEVEL: INFO
+      API_TITLE: Azure RAG Platform API
+      API_VERSION: 0.1.0
+      OTEL_SERVICE_NAME: rag-api
+      APPLICATIONINSIGHTS_CONNECTION_STRING: ""
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_COLLECTION_NAME: ${QDRANT_COLLECTION_NAME:-documents}
+      QDRANT_API_KEY: ""
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:v1.18.3-unprivileged
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    restart: unless-stopped
+
+  qdrant-init:
+    image: curlimages/curl:8.16.0
+    depends_on:
+      - qdrant
+    environment:
+      QDRANT_COLLECTION_NAME: ${QDRANT_COLLECTION_NAME:-documents}
+      QDRANT_VECTOR_SIZE: ${QDRANT_VECTOR_SIZE:-768}
+    command:
+      - sh
+      - -c
+      - |
+        until curl -fsS http://qdrant:6333/ >/dev/null; do
+          sleep 1
+        done
+
+        if curl -fsS "http://qdrant:6333/collections/$${QDRANT_COLLECTION_NAME}" >/dev/null 2>&1; then
+          exit 0
+        fi
+
+        curl -fsS -X PUT "http://qdrant:6333/collections/$${QDRANT_COLLECTION_NAME}" \
+          -H "content-type: application/json" \
+          -d "{\"vectors\":{\"size\":$${QDRANT_VECTOR_SIZE},\"distance\":\"Cosine\"}}"
+    restart: "no"
+
+volumes:
+  qdrant_storage:
