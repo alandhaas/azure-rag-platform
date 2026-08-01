@@ -1,0 +1,105 @@
+"""Typed settings for the worker application."""
+
+from __future__ import annotations
+
+from functools import lru_cache
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from rag_core.embeddings import (
+    OLLAMA_BASE_URL_ENV,
+    OLLAMA_EMBEDDING_MODEL_ENV,
+    OllamaEmbeddingConfig,
+)
+from rag_core.vectorstore import (
+    QDRANT_API_KEY_ENV,
+    QDRANT_COLLECTION_NAME_ENV,
+    QDRANT_URL_ENV,
+    QdrantVectorStoreConfig,
+)
+
+AZURE_WEBJOBS_STORAGE_ENV = "AzureWebJobsStorage"
+INGESTION_QUEUE_NAME_ENV = "INGESTION_QUEUE_NAME"
+DOCUMENTS_CONTAINER_NAME_ENV = "DOCUMENTS_CONTAINER_NAME"
+DOCUMENT_METADATA_TABLE_NAME_ENV = "DOCUMENT_METADATA_TABLE_NAME"
+WORKER_RETRY_LIMIT_ENV = "WORKER_RETRY_LIMIT"
+
+
+class WorkerSettings(BaseSettings):
+    """Environment-backed Azure Functions worker settings."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    app_env: str = Field(default="local", alias="APP_ENV")
+    log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+    otel_service_name: str = Field(default="rag-worker", alias="OTEL_SERVICE_NAME")
+    applicationinsights_connection_string: str | None = Field(
+        default=None,
+        alias="APPLICATIONINSIGHTS_CONNECTION_STRING",
+    )
+
+    azure_webjobs_storage: str | None = Field(default=None, alias=AZURE_WEBJOBS_STORAGE_ENV)
+    ingestion_queue_name: str = Field(
+        default="documents-to-ingest",
+        alias=INGESTION_QUEUE_NAME_ENV,
+    )
+    documents_container_name: str = Field(
+        default="documents",
+        alias=DOCUMENTS_CONTAINER_NAME_ENV,
+    )
+    document_metadata_table_name: str = Field(
+        default="DocumentMetadata",
+        alias=DOCUMENT_METADATA_TABLE_NAME_ENV,
+    )
+    worker_retry_limit: int = Field(default=5, ge=1, le=20, alias=WORKER_RETRY_LIMIT_ENV)
+
+    ollama_base_url: str | None = Field(default=None, alias=OLLAMA_BASE_URL_ENV)
+    ollama_embedding_model: str | None = Field(default=None, alias=OLLAMA_EMBEDDING_MODEL_ENV)
+
+    qdrant_url: str | None = Field(default=None, alias=QDRANT_URL_ENV)
+    qdrant_collection_name: str | None = Field(default=None, alias=QDRANT_COLLECTION_NAME_ENV)
+    qdrant_api_key: str | None = Field(default=None, alias=QDRANT_API_KEY_ENV)
+
+    def storage_connection_string(self) -> str:
+        return _required_setting(self.azure_webjobs_storage, AZURE_WEBJOBS_STORAGE_ENV)
+
+    def ollama_embedding_config(self) -> OllamaEmbeddingConfig:
+        return OllamaEmbeddingConfig.from_env(
+            {
+                OLLAMA_BASE_URL_ENV: _required_setting(
+                    self.ollama_base_url,
+                    OLLAMA_BASE_URL_ENV,
+                ),
+                OLLAMA_EMBEDDING_MODEL_ENV: _required_setting(
+                    self.ollama_embedding_model,
+                    OLLAMA_EMBEDDING_MODEL_ENV,
+                ),
+            }
+        )
+
+    def qdrant_vector_store_config(self) -> QdrantVectorStoreConfig:
+        env = {
+            QDRANT_URL_ENV: _required_setting(self.qdrant_url, QDRANT_URL_ENV),
+            QDRANT_COLLECTION_NAME_ENV: _required_setting(
+                self.qdrant_collection_name,
+                QDRANT_COLLECTION_NAME_ENV,
+            ),
+        }
+        if self.qdrant_api_key:
+            env[QDRANT_API_KEY_ENV] = self.qdrant_api_key
+        return QdrantVectorStoreConfig.from_env(env)
+
+
+@lru_cache
+def get_settings() -> WorkerSettings:
+    return WorkerSettings()
+
+
+def _required_setting(value: str | None, name: str) -> str:
+    if value is None or not value.strip():
+        raise RuntimeError(f"Missing required worker setting: {name}")
+    return value

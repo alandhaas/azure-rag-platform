@@ -604,12 +604,14 @@ version = "0.1.0"
 source = { editable = "app/worker" }
 dependencies = [
     { name = "azure-functions" },
+    { name = "pydantic-settings" },
     { name = "rag-core" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "azure-functions", specifier = ">=1.24.0" },
+    { name = "pydantic-settings", specifier = ">=2.7.0" },
     { name = "rag-core", editable = "packages/rag_core" },
 ]
 

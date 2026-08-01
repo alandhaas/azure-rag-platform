@@ -6,6 +6,15 @@
     "APP_ENV": "local",
     "LOG_LEVEL": "INFO",
     "OTEL_SERVICE_NAME": "rag-worker",
-    "APPLICATIONINSIGHTS_CONNECTION_STRING": ""
+    "APPLICATIONINSIGHTS_CONNECTION_STRING": "",
+    "INGESTION_QUEUE_NAME": "documents-to-ingest",
+    "DOCUMENTS_CONTAINER_NAME": "documents",
+    "DOCUMENT_METADATA_TABLE_NAME": "DocumentMetadata",
+    "WORKER_RETRY_LIMIT": "5",
+    "OLLAMA_BASE_URL": "http://localhost:11434",
+    "OLLAMA_EMBEDDING_MODEL": "nomic-embed-text",
+    "QDRANT_URL": "http://localhost:6333",
+    "QDRANT_COLLECTION_NAME": "documents",
+    "QDRANT_API_KEY": ""
   }
 }
