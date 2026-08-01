@@ -6,7 +6,8 @@ from typing import cast
 
 import azure.functions as func
 import pytest
-from rag_worker.function_app import app, live_health
+from rag_worker.commands import IngestionCommandError
+from rag_worker.function_app import app, ingest_document, live_health
 from rag_worker.observability import request_id_context, resolve_request_id
 
 
@@ -83,3 +84,38 @@ def test_worker_logs_include_request_id(caplog: pytest.LogCaptureFixture) -> Non
         cast(str | None, getattr(record, "request_id", None)) for record in caplog.records
     ]
     assert "logged-request-id" in request_ids
+
+
+def test_ingest_document_validates_and_logs_command(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    msg = func.QueueMessage(
+        body=(
+            b'{"document_id":"doc-123",'
+            b'"blob_uri":"azurite://documents/doc-123.pdf",'
+            b'"correlation_id":"queue-request-123"}'
+        )
+    )
+
+    with caplog.at_level(logging.INFO, logger="rag_worker.functions"):
+        ingest_document(msg)
+
+    request_ids = [
+        cast(str | None, getattr(record, "request_id", None)) for record in caplog.records
+    ]
+    messages = [record.getMessage() for record in caplog.records]
+
+    assert "queue-request-123" in request_ids
+    assert any(
+        "ingestion_command_received document_id=doc-123 "
+        "blob_uri=azurite://documents/doc-123.pdf" in message
+        for message in messages
+    )
+    assert request_id_context.get() is None
+
+
+def test_ingest_document_rejects_invalid_command() -> None:
+    msg = func.QueueMessage(body=b"not-json")
+
+    with pytest.raises(IngestionCommandError):
+        ingest_document(msg)
