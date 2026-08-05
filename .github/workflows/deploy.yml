@@ -1,0 +1,131 @@
+name: deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AZURE_LOCATION: westeurope
+  TF_STATE_RESOURCE_GROUP: rg-azure-rag-platform-tfstate
+  TF_STATE_CONTAINER: tfstate
+  TF_STATE_KEY: azure-rag-platform.tfstate
+  TF_WORKING_DIR: infra/terraform
+  PROJECT_NAME: azure-rag-platform
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Bootstrap Terraform state
+        shell: bash
+        env:
+          TF_STATE_STORAGE_ACCOUNT: ${{ secrets.TF_STATE_STORAGE_ACCOUNT }}
+        run: |
+          az group create \
+            --name "$TF_STATE_RESOURCE_GROUP" \
+            --location "$AZURE_LOCATION" \
+            --output none
+
+          az storage account create \
+            --resource-group "$TF_STATE_RESOURCE_GROUP" \
+            --name "$TF_STATE_STORAGE_ACCOUNT" \
+            --location "$AZURE_LOCATION" \
+            --sku Standard_LRS \
+            --kind StorageV2 \
+            --min-tls-version TLS1_2 \
+            --https-only true \
+            --output none
+
+          account_key="$(az storage account keys list \
+            --resource-group "$TF_STATE_RESOURCE_GROUP" \
+            --account-name "$TF_STATE_STORAGE_ACCOUNT" \
+            --query '[0].value' \
+            --output tsv)"
+
+          az storage container create \
+            --name "$TF_STATE_CONTAINER" \
+            --account-name "$TF_STATE_STORAGE_ACCOUNT" \
+            --account-key "$account_key" \
+            --output none
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform init
+        shell: bash
+        env:
+          TF_STATE_STORAGE_ACCOUNT: ${{ secrets.TF_STATE_STORAGE_ACCOUNT }}
+        run: |
+          terraform -chdir="$TF_WORKING_DIR" init \
+            -backend-config="resource_group_name=$TF_STATE_RESOURCE_GROUP" \
+            -backend-config="storage_account_name=$TF_STATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=$TF_STATE_CONTAINER" \
+            -backend-config="key=$TF_STATE_KEY"
+
+      - name: Terraform apply ACR
+        shell: bash
+        env:
+          TF_VAR_project_name: ${{ env.PROJECT_NAME }}
+          TF_VAR_location: ${{ env.AZURE_LOCATION }}
+          TF_VAR_gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          terraform -chdir="$TF_WORKING_DIR" apply \
+            -auto-approve \
+            -target=azurerm_container_registry.acr
+
+      - name: Build and push images
+        shell: bash
+        run: |
+          acr_login_server="$(terraform -chdir="$TF_WORKING_DIR" output -raw acr_login_server)"
+          az acr login --name "${acr_login_server%%.azurecr.io}"
+
+          api_image="$acr_login_server/rag-api:${GITHUB_SHA}"
+          worker_image="$acr_login_server/rag-worker:${GITHUB_SHA}"
+
+          docker build \
+            --file app/api/Dockerfile \
+            --tag "$api_image" \
+            .
+          docker push "$api_image"
+
+          docker build \
+            --file app/worker/Dockerfile \
+            --tag "$worker_image" \
+            .
+          docker push "$worker_image"
+
+          {
+            echo "TF_VAR_api_image=$api_image"
+            echo "TF_VAR_worker_image=$worker_image"
+          } >> "$GITHUB_ENV"
+
+      - name: Terraform apply
+        shell: bash
+        env:
+          TF_VAR_project_name: ${{ env.PROJECT_NAME }}
+          TF_VAR_location: ${{ env.AZURE_LOCATION }}
+          TF_VAR_gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+        run: terraform -chdir="$TF_WORKING_DIR" apply -auto-approve
+
+      - name: Output API URL
+        shell: bash
+        run: terraform -chdir="$TF_WORKING_DIR" output -raw api_url

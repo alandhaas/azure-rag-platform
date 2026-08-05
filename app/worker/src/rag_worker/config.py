@@ -23,6 +23,7 @@ from rag_core.vectorstore import (
     QDRANT_API_KEY_ENV,
     QDRANT_COLLECTION_NAME_ENV,
     QDRANT_URL_ENV,
+    QDRANT_VECTOR_SIZE_ENV,
     QdrantVectorStoreConfig,
 )
 
@@ -100,6 +101,7 @@ class WorkerSettings(BaseSettings):
     qdrant_url: str | None = Field(default=None, alias=QDRANT_URL_ENV)
     qdrant_collection_name: str | None = Field(default=None, alias=QDRANT_COLLECTION_NAME_ENV)
     qdrant_api_key: str | None = Field(default=None, alias=QDRANT_API_KEY_ENV)
+    qdrant_vector_size: int = Field(default=768, ge=1, alias=QDRANT_VECTOR_SIZE_ENV)
 
     def storage_connection_string(self) -> str:
         return _required_setting(self.azure_webjobs_storage, AZURE_WEBJOBS_STORAGE_ENV)
@@ -143,6 +145,7 @@ class WorkerSettings(BaseSettings):
         }
         if self.qdrant_api_key:
             env[QDRANT_API_KEY_ENV] = self.qdrant_api_key
+        env[QDRANT_VECTOR_SIZE_ENV] = str(self.qdrant_vector_size)
         return QdrantVectorStoreConfig.from_env(env)
 
 

@@ -17,6 +17,7 @@ from rag_core.vectorstore.models import VectorPoint, VectorSearchQuery, VectorSe
 QDRANT_URL_ENV: Final = "QDRANT_URL"
 QDRANT_COLLECTION_NAME_ENV: Final = "QDRANT_COLLECTION_NAME"
 QDRANT_API_KEY_ENV: Final = "QDRANT_API_KEY"
+QDRANT_VECTOR_SIZE_ENV: Final = "QDRANT_VECTOR_SIZE"
 
 
 class _QdrantClient(Protocol):
@@ -44,6 +45,15 @@ class _QdrantClient(Protocol):
         points_selector: models.PointIdsList,
     ) -> object: ...
 
+    async def collection_exists(self, collection_name: str) -> bool: ...
+
+    async def create_collection(
+        self,
+        *,
+        collection_name: str,
+        vectors_config: models.VectorParams,
+    ) -> object: ...
+
     async def close(self) -> None: ...
 
 
@@ -54,6 +64,7 @@ class QdrantVectorStoreConfig:
     url: str
     collection_name: str
     api_key: str | None = None
+    vector_size: int = 768
     request_timeout_seconds: int = 30
 
     @classmethod
@@ -63,6 +74,7 @@ class QdrantVectorStoreConfig:
             url=_required_env(env, QDRANT_URL_ENV),
             collection_name=_required_env(env, QDRANT_COLLECTION_NAME_ENV),
             api_key=_optional_env(env, QDRANT_API_KEY_ENV),
+            vector_size=_optional_positive_int_env(env, QDRANT_VECTOR_SIZE_ENV, default=768),
         )
 
 
@@ -76,6 +88,7 @@ class QdrantVectorStore:
         client: _QdrantClient | None = None,
     ) -> None:
         self.config = config
+        self._collection_ready = False
         self._client = client or cast(
             _QdrantClient,
             AsyncQdrantClient(
@@ -90,12 +103,14 @@ class QdrantVectorStore:
         if not points:
             return
 
+        await self._ensure_collection()
         await self._client.upsert(
             collection_name=self.config.collection_name,
             points=[_to_point_struct(point) for point in points],
         )
 
     async def search(self, query: VectorSearchQuery) -> list[VectorSearchResult]:
+        await self._ensure_collection()
         response = await self._client.query_points(
             collection_name=self.config.collection_name,
             query=list(query.embedding.values),
@@ -117,6 +132,20 @@ class QdrantVectorStore:
     async def close(self) -> None:
         await self._client.close()
 
+    async def _ensure_collection(self) -> None:
+        if self._collection_ready:
+            return
+
+        if not await self._client.collection_exists(self.config.collection_name):
+            await self._client.create_collection(
+                collection_name=self.config.collection_name,
+                vectors_config=models.VectorParams(
+                    size=self.config.vector_size,
+                    distance=models.Distance.COSINE,
+                ),
+            )
+        self._collection_ready = True
+
 
 def _required_env(environ: Mapping[str, str], name: str) -> str:
     value = environ.get(name)
@@ -130,6 +159,28 @@ def _optional_env(environ: Mapping[str, str], name: str) -> str | None:
     if value is None or not value.strip():
         return None
     return value
+
+
+def _optional_positive_int_env(
+    environ: Mapping[str, str],
+    name: str,
+    *,
+    default: int,
+) -> int:
+    value = environ.get(name)
+    if value is None or not value.strip():
+        return default
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise VectorStoreConfigurationError(
+            f"Environment variable {name} must be an integer."
+        ) from exc
+    if parsed < 1:
+        raise VectorStoreConfigurationError(
+            f"Environment variable {name} must be greater than zero."
+        )
+    return parsed
 
 
 def _to_point_struct(point: VectorPoint) -> models.PointStruct:

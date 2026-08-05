@@ -1,4 +1,4 @@
-.PHONY: install lint typecheck test check api worker worker-functions services-up compose-up compose-down compose-build compose-logs compose-ps
+.PHONY: install lint typecheck test check api worker worker-functions services-up compose-up compose-down compose-build compose-logs compose-ps bootstrap-azure-github
 
 install:
 	uv sync
@@ -40,3 +40,7 @@ compose-logs:
 
 compose-ps:
 	docker compose ps
+
+bootstrap-azure-github:
+	@test -n "$(REPO)" || (echo "Usage: make bootstrap-azure-github REPO=OWNER/REPO" && exit 1)
+	bash scripts/bootstrap-azure-github.sh "$(REPO)"

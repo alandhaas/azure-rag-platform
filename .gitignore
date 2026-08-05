@@ -207,6 +207,19 @@ tempCodeRunnerFile.py
 # Ruff stuff:
 .ruff_cache/
 
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
 # PyPI configuration file
 .pypirc
 
@@ -217,3 +230,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+scripts/*
+!scripts/bootstrap-azure-github.sh

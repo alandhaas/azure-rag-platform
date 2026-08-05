@@ -8,6 +8,7 @@ from rag_core.vectorstore import (
     QDRANT_API_KEY_ENV,
     QDRANT_COLLECTION_NAME_ENV,
     QDRANT_URL_ENV,
+    QDRANT_VECTOR_SIZE_ENV,
     QdrantVectorStore,
     QdrantVectorStoreConfig,
     VectorPoint,
@@ -37,6 +38,8 @@ class FakeQdrantClient:
         self.deleted_ids: list[str] = []
         self.search_filter: models.Filter | None = None
         self.closed = False
+        self.collection_exists_result = True
+        self.created_collection: tuple[str, int] | None = None
 
     async def upsert(
         self,
@@ -85,6 +88,20 @@ class FakeQdrantClient:
     async def close(self) -> None:
         self.closed = True
 
+    async def collection_exists(self, collection_name: str) -> bool:
+        self.collection_name = collection_name
+        return self.collection_exists_result
+
+    async def create_collection(
+        self,
+        *,
+        collection_name: str,
+        vectors_config: models.VectorParams,
+    ) -> object:
+        self.collection_name = collection_name
+        self.created_collection = (collection_name, int(vectors_config.size))
+        return None
+
 
 def test_qdrant_config_reads_required_environment() -> None:
     env = _qdrant_env()
@@ -94,6 +111,7 @@ def test_qdrant_config_reads_required_environment() -> None:
     assert config.url == env[QDRANT_URL_ENV]
     assert config.collection_name == env[QDRANT_COLLECTION_NAME_ENV]
     assert config.api_key == env[QDRANT_API_KEY_ENV]
+    assert config.vector_size == 768
 
 
 @pytest.mark.parametrize(
@@ -127,6 +145,25 @@ async def test_qdrant_vector_store_upserts_points() -> None:
     assert client.upserted_points[0].id == "chunk-1"
     assert client.upserted_points[0].vector == [0.1, 0.2, 0.3]
     assert client.upserted_points[0].payload == {"document_id": "document-1"}
+
+
+@pytest.mark.asyncio
+async def test_qdrant_vector_store_creates_missing_collection_before_upsert() -> None:
+    client = FakeQdrantClient()
+    client.collection_exists_result = False
+    store = QdrantVectorStore(_config(), client=client)
+
+    await store.upsert(
+        [
+            VectorPoint(
+                id="chunk-1",
+                embedding=_embedding(),
+                payload={"document_id": "document-1"},
+            )
+        ]
+    )
+
+    assert client.created_collection == ("collection-name", 768)
 
 
 @pytest.mark.asyncio
@@ -208,6 +245,7 @@ def _qdrant_env() -> dict[str, str]:
         QDRANT_URL_ENV: "http://qdrant.test:6333",
         QDRANT_COLLECTION_NAME_ENV: "collection-name",
         QDRANT_API_KEY_ENV: "api-key",
+        QDRANT_VECTOR_SIZE_ENV: "768",
     }
 
 

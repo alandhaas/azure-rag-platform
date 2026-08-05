@@ -16,6 +16,7 @@ from rag_core.vectorstore.qdrant import (
     QDRANT_API_KEY_ENV,
     QDRANT_COLLECTION_NAME_ENV,
     QDRANT_URL_ENV,
+    QDRANT_VECTOR_SIZE_ENV,
     QdrantVectorStore,
     QdrantVectorStoreConfig,
 )
@@ -24,6 +25,7 @@ __all__ = [
     "QDRANT_API_KEY_ENV",
     "QDRANT_COLLECTION_NAME_ENV",
     "QDRANT_URL_ENV",
+    "QDRANT_VECTOR_SIZE_ENV",
     "QdrantVectorStore",
     "QdrantVectorStoreConfig",
     "VectorPoint",
