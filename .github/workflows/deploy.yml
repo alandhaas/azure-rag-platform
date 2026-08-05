@@ -182,6 +182,10 @@ jobs:
             "${resource_group_id}/providers/Microsoft.App/managedEnvironments/cae-${normalized_project_name}"
 
           import_if_exists \
+            azurerm_container_app_environment_storage.qdrant \
+            "${resource_group_id}/providers/Microsoft.App/managedEnvironments/cae-${normalized_project_name}/storages/qdrant-storage"
+
+          import_if_exists \
             azurerm_container_app.qdrant \
             "${resource_group_id}/providers/Microsoft.App/containerApps/ca-${normalized_project_name}-qdrant"
 

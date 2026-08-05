@@ -55,7 +55,7 @@ variable "qdrant_collection_name" {
 
 variable "cors_allowed_origins" {
   type    = string
-  default = "*"
+  default = "http://localhost:3000,http://localhost:5173,http://localhost:5174,https://jolly-desert-07c48da03.7.azurestaticapps.net"
 }
 
 variable "document_chunk_max_chars" {

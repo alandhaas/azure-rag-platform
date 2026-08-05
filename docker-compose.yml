@@ -14,7 +14,7 @@ services:
       LOG_LEVEL: INFO
       API_TITLE: Azure RAG Platform API
       API_VERSION: 0.1.0
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173,http://localhost:5174}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173,http://localhost:5174,https://jolly-desert-07c48da03.7.azurestaticapps.net}
       OTEL_SERVICE_NAME: rag-api
       APPLICATIONINSIGHTS_CONNECTION_STRING: ""
       EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-google}

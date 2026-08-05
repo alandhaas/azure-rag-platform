@@ -1,5 +1,5 @@
 import pytest
-from rag_api.config import ApiSettings
+from rag_api.config import DEFAULT_CORS_ALLOWED_ORIGINS, ApiSettings
 from rag_core.embeddings import (
     EMBEDDING_PROVIDER_ENV,
     GEMINI_API_KEY_ENV,
@@ -88,6 +88,16 @@ def test_api_settings_parse_cors_allowed_origins() -> None:
         "http://localhost:3000",
         "https://app.example.com",
     ]
+
+
+def test_default_cors_origins_include_static_web_app() -> None:
+    settings = ApiSettings()
+
+    assert settings.cors_allowed_origins == DEFAULT_CORS_ALLOWED_ORIGINS
+    assert (
+        "https://jolly-desert-07c48da03.7.azurestaticapps.net"
+        in settings.parsed_cors_allowed_origins()
+    )
 
 
 @pytest.mark.parametrize(

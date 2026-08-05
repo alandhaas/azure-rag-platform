@@ -30,7 +30,12 @@ INGESTION_QUEUE_NAME_ENV = "INGESTION_QUEUE_NAME"
 DOCUMENTS_CONTAINER_NAME_ENV = "DOCUMENTS_CONTAINER_NAME"
 DOCUMENT_METADATA_TABLE_NAME_ENV = "DOCUMENT_METADATA_TABLE_NAME"
 CORS_ALLOWED_ORIGINS_ENV = "CORS_ALLOWED_ORIGINS"
-DEFAULT_CORS_ALLOWED_ORIGINS = "http://localhost:3000,http://localhost:5173,http://localhost:5174"
+DEFAULT_CORS_ALLOWED_ORIGINS = (
+    "http://localhost:3000,"
+    "http://localhost:5173,"
+    "http://localhost:5174,"
+    "https://jolly-desert-07c48da03.7.azurestaticapps.net"
+)
 
 
 class ApiSettings(BaseSettings):

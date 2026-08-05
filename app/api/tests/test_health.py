@@ -45,5 +45,27 @@ def test_cors_preflight_allows_configured_origin() -> None:
     assert response.headers["access-control-allow-credentials"] == "true"
 
 
+def test_cors_preflight_allows_static_web_app_origin_by_default() -> None:
+    client = _test_client()
+
+    response = cast(
+        httpx.Response,
+        client.options(
+            "/queries/retrieval",
+            headers={
+                "origin": "https://jolly-desert-07c48da03.7.azurestaticapps.net",
+                "access-control-request-method": "POST",
+                "access-control-request-headers": "content-type",
+            },
+        ),
+    )
+
+    assert response.status_code == 200
+    assert (
+        response.headers["access-control-allow-origin"]
+        == "https://jolly-desert-07c48da03.7.azurestaticapps.net"
+    )
+
+
 def _test_client() -> Any:
     return TestClient(create_app(ApiSettings()))
