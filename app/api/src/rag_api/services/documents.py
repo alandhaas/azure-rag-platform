@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import PurePath
-from typing import Protocol, cast
+from typing import Any, Protocol, cast
 from uuid import uuid4
 
-from azure.core.exceptions import ResourceExistsError
+from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
 from azure.storage.blob import BlobServiceClient, ContentSettings
 from azure.storage.queue import QueueClient, TextBase64EncodePolicy
 from rag_core.ingestion import DocumentIngestionStatus, IngestionCommand
@@ -30,10 +31,16 @@ class _BlobClient(Protocol):
     ) -> object: ...
 
 
+class _ContainerClient(Protocol):
+    def list_blobs(self, *, include: list[str]) -> Iterable[object]: ...
+
+
 class _BlobServiceClient(Protocol):
     def create_container(self, name: str) -> object: ...
 
     def get_blob_client(self, *, container: str, blob: str) -> _BlobClient: ...
+
+    def get_container_client(self, container: str) -> _ContainerClient: ...
 
 
 class _QueueClient(Protocol):
@@ -55,6 +62,20 @@ class DocumentUploadResult:
     queue_name: str
     correlation_id: str
     status: DocumentIngestionStatus
+
+
+@dataclass(frozen=True, slots=True)
+class StoredDocument:
+    """Document file stored in the configured Blob container."""
+
+    document_id: str | None
+    blob_name: str
+    blob_uri: str
+    file_name: str
+    content_type: str | None
+    size_bytes: int
+    created_at: str | None
+    updated_at: str | None
 
 
 class DocumentIngestionService:
@@ -161,6 +182,47 @@ class DocumentIngestionService:
             pass
 
 
+class DocumentBlobListingService:
+    """List document files stored in the configured Blob container."""
+
+    def __init__(
+        self,
+        *,
+        connection_string: str,
+        container_name: str,
+        blob_service_client: _BlobServiceClient | None = None,
+    ) -> None:
+        if not connection_string.strip():
+            raise RuntimeError("Storage connection string is required.")
+        if not container_name.strip():
+            raise RuntimeError("Documents container name is required.")
+
+        self._container_name = container_name
+        self._blob_service_client = blob_service_client or cast(
+            _BlobServiceClient,
+            BlobServiceClient.from_connection_string(connection_string),
+        )
+
+    def list_documents(self) -> list[StoredDocument]:
+        container_client = self._blob_service_client.get_container_client(self._container_name)
+
+        try:
+            blobs = list(container_client.list_blobs(include=["metadata"]))
+        except ResourceNotFoundError:
+            return []
+
+        return [
+            _stored_document_from_blob(
+                blob=blob,
+                blob_uri=self._blob_service_client.get_blob_client(
+                    container=self._container_name,
+                    blob=_blob_name(blob),
+                ).url,
+            )
+            for blob in blobs
+        ]
+
+
 def _looks_like_pdf(
     *,
     filename: str | None,
@@ -183,3 +245,51 @@ def _safe_pdf_filename(filename: str | None) -> str:
     if PurePath(name).suffix.lower() != ".pdf":
         return f"{name}.pdf"
     return name
+
+
+def _stored_document_from_blob(*, blob: object, blob_uri: str) -> StoredDocument:
+    blob_name = _blob_name(blob)
+    metadata = _blob_metadata(blob)
+    content_settings = getattr(blob, "content_settings", None)
+    content_type = getattr(content_settings, "content_type", None)
+    size = getattr(blob, "size", 0)
+
+    return StoredDocument(
+        document_id=metadata.get("document_id") or _document_id_from_blob_name(blob_name),
+        blob_name=blob_name,
+        blob_uri=blob_uri,
+        file_name=PurePath(blob_name).name,
+        content_type=content_type if isinstance(content_type, str) else None,
+        size_bytes=size if isinstance(size, int) else 0,
+        created_at=_isoformat_or_none(getattr(blob, "creation_time", None)),
+        updated_at=_isoformat_or_none(getattr(blob, "last_modified", None)),
+    )
+
+
+def _blob_name(blob: object) -> str:
+    return str(cast(Any, blob).name)
+
+
+def _blob_metadata(blob: object) -> Mapping[str, str]:
+    metadata = getattr(blob, "metadata", None)
+    if not isinstance(metadata, Mapping):
+        return {}
+    metadata_map = cast(Mapping[object, object], metadata)
+    return {
+        str(key): str(value)
+        for key, value in metadata_map.items()
+        if isinstance(key, str) and isinstance(value, str)
+    }
+
+
+def _document_id_from_blob_name(blob_name: str) -> str | None:
+    first_segment = PurePath(blob_name).parts[0] if PurePath(blob_name).parts else ""
+    if not first_segment.strip():
+        return None
+    return first_segment
+
+
+def _isoformat_or_none(value: object) -> str | None:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return None

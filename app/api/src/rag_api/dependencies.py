@@ -12,7 +12,7 @@ from rag_core.vectorstore import QdrantVectorStore, VectorStore
 
 from rag_api.config import ApiSettings
 from rag_api.services.document_status import DocumentStatusRepository
-from rag_api.services.documents import DocumentIngestionService
+from rag_api.services.documents import DocumentBlobListingService, DocumentIngestionService
 
 
 def get_api_settings(request: Request) -> ApiSettings:
@@ -40,6 +40,13 @@ def create_document_ingestion_service(settings: ApiSettings) -> DocumentIngestio
     )
 
 
+def create_document_blob_listing_service(settings: ApiSettings) -> DocumentBlobListingService:
+    return DocumentBlobListingService(
+        connection_string=settings.storage_connection_string(),
+        container_name=settings.documents_container_name,
+    )
+
+
 def create_document_status_repository(settings: ApiSettings) -> DocumentStatusRepository:
     return DocumentStatusRepository(
         connection_string=settings.storage_connection_string(),
@@ -57,6 +64,10 @@ def get_vector_store(request: Request) -> VectorStore:
 
 def get_document_ingestion_service(request: Request) -> DocumentIngestionService:
     return create_document_ingestion_service(get_api_settings(request))
+
+
+def get_document_blob_listing_service(request: Request) -> DocumentBlobListingService:
+    return create_document_blob_listing_service(get_api_settings(request))
 
 
 def get_document_status_repository(request: Request) -> DocumentStatusRepository:
