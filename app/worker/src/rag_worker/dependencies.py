@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from rag_core.embeddings import OllamaEmbeddingProvider
+from rag_core.embeddings import EmbeddingProvider, GeminiEmbeddingProvider, OllamaEmbeddingProvider
 from rag_core.ingestion import ChunkingConfig, TextChunker
 from rag_core.vectorstore import QdrantVectorStore
 
@@ -26,7 +26,7 @@ def create_document_indexing_pipeline(
                     overlap_chars=settings.document_chunk_overlap_chars,
                 )
             ),
-            embedding_provider=OllamaEmbeddingProvider(settings.ollama_embedding_config()),
+            embedding_provider=create_embedding_provider(settings),
         ),
         vector_store=QdrantVectorStore(settings.qdrant_vector_store_config()),
     )
@@ -45,5 +45,13 @@ def create_document_embedding_pipeline(
                 overlap_chars=settings.document_chunk_overlap_chars,
             )
         ),
-        embedding_provider=OllamaEmbeddingProvider(settings.ollama_embedding_config()),
+        embedding_provider=create_embedding_provider(settings),
     )
+
+
+def create_embedding_provider(settings: WorkerSettings) -> EmbeddingProvider:
+    if settings.embedding_provider.lower() == "google":
+        return GeminiEmbeddingProvider(settings.gemini_embedding_config())
+    if settings.embedding_provider.lower() == "ollama":
+        return OllamaEmbeddingProvider(settings.ollama_embedding_config())
+    raise RuntimeError(f"Unsupported embedding provider: {settings.embedding_provider}")

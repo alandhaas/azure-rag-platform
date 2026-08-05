@@ -15,7 +15,7 @@ COPY pyproject.toml uv.lock README.md ./
 COPY app/api ./app/api
 COPY packages/rag_core ./packages/rag_core
 
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev --package rag-api
 
 RUN useradd --create-home --shell /usr/sbin/nologin appuser
 USER appuser

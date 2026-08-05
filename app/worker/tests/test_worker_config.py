@@ -1,6 +1,12 @@
 import pytest
 from pydantic import ValidationError
 from rag_core.embeddings import (
+    EMBEDDING_PROVIDER_ENV,
+    GEMINI_API_KEY_ENV,
+    GEMINI_BASE_URL_ENV,
+    GEMINI_EMBEDDING_MODEL_ENV,
+    GEMINI_EMBEDDING_OUTPUT_DIMENSIONALITY_ENV,
+    GOOGLE_API_KEY_ENV,
     OLLAMA_BASE_URL_ENV,
     OLLAMA_EMBEDDING_MODEL_ENV,
 )
@@ -43,6 +49,33 @@ def test_worker_settings_builds_ollama_embedding_config_from_environment_values(
     assert config.embedding_model == "embedding-model"
 
 
+def test_worker_settings_builds_gemini_embedding_config_from_environment_values() -> None:
+    settings = WorkerSettings(
+        GEMINI_API_KEY="test-key",
+        GEMINI_BASE_URL="https://gemini.test",
+        GEMINI_EMBEDDING_MODEL="gemini-embedding-001",
+        GEMINI_EMBEDDING_OUTPUT_DIMENSIONALITY=768,
+    )
+
+    config = settings.gemini_embedding_config()
+
+    assert config.api_key == "test-key"
+    assert config.base_url == "https://gemini.test"
+    assert config.embedding_model == "gemini-embedding-001"
+    assert config.output_dimensionality == 768
+
+
+def test_worker_settings_allows_google_api_key_alias_for_gemini() -> None:
+    settings = WorkerSettings(
+        GEMINI_API_KEY=None,
+        GOOGLE_API_KEY="google-key",
+    )
+
+    config = settings.gemini_embedding_config()
+
+    assert config.api_key == "google-key"
+
+
 def test_worker_settings_builds_qdrant_config_from_environment_values() -> None:
     settings = WorkerSettings(
         QDRANT_URL="http://qdrant.test:6333",
@@ -64,7 +97,12 @@ def test_worker_settings_reads_storage_connection_string() -> None:
 
 @pytest.mark.parametrize(
     "setting_method",
-    ["storage_connection_string", "ollama_embedding_config", "qdrant_vector_store_config"],
+    [
+        "storage_connection_string",
+        "ollama_embedding_config",
+        "gemini_embedding_config",
+        "qdrant_vector_store_config",
+    ],
 )
 def test_worker_settings_raise_when_required_provider_values_are_missing(
     setting_method: str,
@@ -73,6 +111,7 @@ def test_worker_settings_raise_when_required_provider_values_are_missing(
         AzureWebJobsStorage=None,
         OLLAMA_BASE_URL=None,
         OLLAMA_EMBEDDING_MODEL=None,
+        GEMINI_API_KEY=None,
         QDRANT_URL=None,
         QDRANT_COLLECTION_NAME=None,
     )
@@ -111,7 +150,19 @@ def test_worker_settings_use_shared_environment_names() -> None:
         WorkerSettings.model_fields["document_chunk_overlap_chars"].alias
         == DOCUMENT_CHUNK_OVERLAP_CHARS_ENV
     )
+    assert WorkerSettings.model_fields["embedding_provider"].alias == EMBEDDING_PROVIDER_ENV
     assert WorkerSettings.model_fields["ollama_base_url"].alias == OLLAMA_BASE_URL_ENV
     assert WorkerSettings.model_fields["ollama_embedding_model"].alias == OLLAMA_EMBEDDING_MODEL_ENV
+    assert WorkerSettings.model_fields["gemini_api_key"].alias == GEMINI_API_KEY_ENV
+    assert WorkerSettings.model_fields["google_api_key"].alias == GOOGLE_API_KEY_ENV
+    assert WorkerSettings.model_fields["gemini_base_url"].alias == GEMINI_BASE_URL_ENV
+    assert (
+        WorkerSettings.model_fields["gemini_embedding_model"].alias
+        == GEMINI_EMBEDDING_MODEL_ENV
+    )
+    assert (
+        WorkerSettings.model_fields["gemini_embedding_output_dimensionality"].alias
+        == GEMINI_EMBEDDING_OUTPUT_DIMENSIONALITY_ENV
+    )
     assert WorkerSettings.model_fields["qdrant_url"].alias == QDRANT_URL_ENV
     assert WorkerSettings.model_fields["qdrant_collection_name"].alias == QDRANT_COLLECTION_NAME_ENV

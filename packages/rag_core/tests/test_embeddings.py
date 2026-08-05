@@ -4,6 +4,11 @@ from collections.abc import Sequence
 import httpx
 import pytest
 from rag_core.embeddings import (
+    GEMINI_API_KEY_ENV,
+    GEMINI_BASE_URL_ENV,
+    GEMINI_EMBEDDING_MODEL_ENV,
+    GEMINI_EMBEDDING_OUTPUT_DIMENSIONALITY_ENV,
+    GOOGLE_API_KEY_ENV,
     OLLAMA_BASE_URL_ENV,
     OLLAMA_EMBEDDING_MODEL_ENV,
     Embedding,
@@ -14,6 +19,8 @@ from rag_core.embeddings import (
     EmbeddingProviderError,
     EmbeddingValidationError,
     EmptyEmbeddingInputError,
+    GeminiEmbeddingConfig,
+    GeminiEmbeddingProvider,
     OllamaEmbeddingConfig,
     OllamaEmbeddingProvider,
     batch_texts,
@@ -149,6 +156,46 @@ def test_ollama_embedding_config_requires_environment(missing_name: str) -> None
         OllamaEmbeddingConfig.from_env(env)
 
 
+def test_gemini_embedding_config_reads_expected_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    env = _gemini_env()
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+
+    config = GeminiEmbeddingConfig.from_env()
+
+    assert config.api_key == env[GEMINI_API_KEY_ENV]
+    assert config.base_url == env[GEMINI_BASE_URL_ENV]
+    assert config.embedding_model == env[GEMINI_EMBEDDING_MODEL_ENV]
+    assert config.output_dimensionality == 768
+
+
+def test_gemini_embedding_config_requires_api_key() -> None:
+    env = _gemini_env()
+    env.pop(GEMINI_API_KEY_ENV)
+
+    with pytest.raises(EmbeddingConfigurationError):
+        GeminiEmbeddingConfig.from_env(env)
+
+
+def test_gemini_embedding_config_rejects_invalid_output_dimensionality() -> None:
+    env = _gemini_env()
+    env[GEMINI_EMBEDDING_OUTPUT_DIMENSIONALITY_ENV] = "0"
+
+    with pytest.raises(EmbeddingConfigurationError):
+        GeminiEmbeddingConfig.from_env(env)
+
+
+def test_gemini_embedding_config_prefers_google_api_key_when_both_are_set() -> None:
+    env = _gemini_env()
+    env[GOOGLE_API_KEY_ENV] = "google-key"
+
+    config = GeminiEmbeddingConfig.from_env(env)
+
+    assert config.api_key == "google-key"
+
+
 @pytest.mark.asyncio
 async def test_ollama_embedding_provider_posts_batch_to_embed_endpoint() -> None:
     env = _ollama_env()
@@ -209,8 +256,89 @@ async def test_ollama_embedding_provider_wraps_http_errors() -> None:
             await provider.embed(["first"])
 
 
+@pytest.mark.asyncio
+async def test_gemini_embedding_provider_posts_batch_to_embed_endpoint() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={"embeddings": [{"values": [0.1, 0.2]}, {"values": [0.3, 0.4]}]},
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport, base_url="https://gemini.test") as client:
+        provider = GeminiEmbeddingProvider(
+            GeminiEmbeddingConfig(
+                api_key="test-key",
+                base_url="https://gemini.test",
+                embedding_model="gemini-embedding-001",
+                output_dimensionality=2,
+            ),
+            client=client,
+        )
+
+        embeddings = await provider.embed(["first", "second"])
+
+    assert [embedding.values for embedding in embeddings] == [(0.1, 0.2), (0.3, 0.4)]
+    assert requests[0].url.path == "/models/gemini-embedding-001:batchEmbedContents"
+    assert requests[0].headers["x-goog-api-key"] == "test-key"
+    assert json.loads(requests[0].content) == {
+        "requests": [
+            {
+                "model": "models/gemini-embedding-001",
+                "content": {"parts": [{"text": "first"}]},
+                "embedContentConfig": {"outputDimensionality": 2},
+            },
+            {
+                "model": "models/gemini-embedding-001",
+                "content": {"parts": [{"text": "second"}]},
+                "embedContentConfig": {"outputDimensionality": 2},
+            },
+        ]
+    }
+
+
+@pytest.mark.asyncio
+async def test_gemini_embedding_provider_rejects_invalid_payload() -> None:
+    transport = httpx.MockTransport(lambda request: httpx.Response(200, json={"items": []}))
+
+    async with httpx.AsyncClient(transport=transport, base_url="https://gemini.test") as client:
+        provider = GeminiEmbeddingProvider(
+            GeminiEmbeddingConfig.from_env(_gemini_env()),
+            client=client,
+        )
+
+        with pytest.raises(EmbeddingProviderError):
+            await provider.embed(["first"])
+
+
+@pytest.mark.asyncio
+async def test_gemini_embedding_provider_wraps_http_errors() -> None:
+    transport = httpx.MockTransport(lambda request: httpx.Response(401, json={"error": "key"}))
+
+    async with httpx.AsyncClient(transport=transport, base_url="https://gemini.test") as client:
+        provider = GeminiEmbeddingProvider(
+            GeminiEmbeddingConfig.from_env(_gemini_env()),
+            client=client,
+        )
+
+        with pytest.raises(EmbeddingProviderError):
+            await provider.embed(["first"])
+
+
 def _ollama_env() -> dict[str, str]:
     return {
         OLLAMA_BASE_URL_ENV: "http://ollama.test",
         OLLAMA_EMBEDDING_MODEL_ENV: "embedding-model",
+    }
+
+
+def _gemini_env() -> dict[str, str]:
+    return {
+        GEMINI_API_KEY_ENV: "test-key",
+        GEMINI_BASE_URL_ENV: "https://gemini.test",
+        GEMINI_EMBEDDING_MODEL_ENV: "gemini-embedding-001",
+        GEMINI_EMBEDDING_OUTPUT_DIMENSIONALITY_ENV: "768",
     }
