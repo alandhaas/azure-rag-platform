@@ -11,6 +11,8 @@
     "DOCUMENTS_CONTAINER_NAME": "documents",
     "DOCUMENT_METADATA_TABLE_NAME": "DocumentMetadata",
     "WORKER_RETRY_LIMIT": "5",
+    "AzureFunctionsJobHost__extensions__queues__maxDequeueCount": "5",
+    "AzureFunctionsJobHost__extensions__queues__visibilityTimeout": "00:00:30",
     "DOCUMENT_CHUNK_MAX_CHARS": "1200",
     "DOCUMENT_CHUNK_OVERLAP_CHARS": "200",
     "OLLAMA_BASE_URL": "http://localhost:11434",

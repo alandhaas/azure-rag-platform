@@ -81,6 +81,33 @@ async def test_document_indexing_pipeline_upserts_embedded_chunks() -> None:
     assert vector_store.points[0].payload["chunk_index"] == 0
 
 
+async def test_document_indexing_pipeline_is_idempotent_for_duplicate_messages() -> None:
+    vector_store = FakeVectorStore()
+    pipeline = DocumentIndexingPipeline(
+        embedding_pipeline=DocumentEmbeddingPipeline(
+            blob_loader=FakeBlobLoader(),
+            text_extractor=DocumentTextExtractor(),
+            text_chunker=TextChunker(ChunkingConfig(max_chars=12, overlap_chars=2)),
+            embedding_provider=FakeEmbeddingProvider(),
+        ),
+        vector_store=vector_store,
+    )
+    command = IngestionCommand(
+        document_id="doc-123",
+        blob_uri="azurite://documents/doc-123.txt",
+        correlation_id="request-123",
+    )
+
+    await pipeline.process(command)
+    await pipeline.process(command)
+
+    first_upsert_ids = [point.id for point in vector_store.upsert_calls[0]]
+    second_upsert_ids = [point.id for point in vector_store.upsert_calls[1]]
+
+    assert first_upsert_ids == second_upsert_ids
+    assert len({*first_upsert_ids, *second_upsert_ids}) == 3
+
+
 async def test_embedded_document_to_vector_points_uses_stable_ids() -> None:
     pipeline = DocumentEmbeddingPipeline(
         blob_loader=FakeBlobLoader(),
@@ -125,6 +152,8 @@ class FakeEmbeddingProvider:
 class FakeVectorStore:
     def __init__(self) -> None:
         self.points: Sequence[VectorPoint] | None = None
+        self.upsert_calls: list[Sequence[VectorPoint]] = []
 
     async def upsert(self, points: Sequence[VectorPoint]) -> None:
         self.points = points
+        self.upsert_calls.append(points)

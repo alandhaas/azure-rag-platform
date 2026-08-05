@@ -94,6 +94,7 @@ async def test_ingest_document_validates_logs_and_generates_embeddings(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     msg = func.QueueMessage(
+        id="queue-message-123",
         body=(
             b'{"document_id":"doc-123",'
             b'"blob_uri":"azurite://documents/doc-123.pdf",'
@@ -119,7 +120,8 @@ async def test_ingest_document_validates_logs_and_generates_embeddings(
     assert "queue-request-123" in request_ids
     assert any(
         "ingestion_command_received document_id=doc-123 "
-        "blob_uri=azurite://documents/doc-123.pdf" in message
+        "blob_uri=azurite://documents/doc-123.pdf "
+        "message_id=queue-message-123 dequeue_count=None" in message
         for message in messages
     )
     assert any(
@@ -136,8 +138,101 @@ async def test_ingest_document_rejects_invalid_command() -> None:
     with pytest.raises(IngestionCommandError):
         await ingest_document(msg)
 
+    assert request_id_context.get() is None
+
+
+async def test_ingest_document_logs_invalid_command_with_retry_classification(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    msg = cast(
+        func.QueueMessage,
+        FakeQueueMessage(
+            body=b"not-json",
+            message_id="message-invalid",
+            dequeue_count=5,
+        ),
+    )
+
+    with caplog.at_level(logging.ERROR, logger="rag_worker.functions"):
+        with pytest.raises(IngestionCommandError):
+            await ingest_document(msg)
+
+    messages = [record.getMessage() for record in caplog.records]
+    request_ids = [
+        cast(str | None, getattr(record, "request_id", None)) for record in caplog.records
+    ]
+
+    assert "message-invalid" in request_ids
+    assert any(
+        "failure_kind=permanent retryable=False reason=IngestionCommandError "
+        "message_id=message-invalid dequeue_count=5 max_dequeue_count=5 "
+        "will_poison_after_failure=True" in message
+        for message in messages
+    )
+    assert request_id_context.get() is None
+
+
+async def test_ingest_document_logs_transient_failure_before_retry(
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    msg = cast(
+        func.QueueMessage,
+        FakeQueueMessage(
+            body=(
+                b'{"document_id":"doc-123",'
+                b'"blob_uri":"azurite://documents/doc-123.txt",'
+                b'"correlation_id":"retry-request-123"}'
+            ),
+            message_id="message-retry",
+            dequeue_count=2,
+        ),
+    )
+
+    class EmbeddingProviderError(Exception):
+        pass
+
+    async def failing_pipeline(command: IngestionCommand) -> FakeEmbeddedDocument:
+        raise EmbeddingProviderError(command.document_id)
+
+    monkeypatch.setattr(function_app, "_run_document_indexing_pipeline", failing_pipeline)
+
+    with caplog.at_level(logging.ERROR, logger="rag_worker.functions"):
+        with pytest.raises(EmbeddingProviderError):
+            await ingest_document(msg)
+
+    messages = [record.getMessage() for record in caplog.records]
+    request_ids = [
+        cast(str | None, getattr(record, "request_id", None)) for record in caplog.records
+    ]
+
+    assert "retry-request-123" in request_ids
+    assert any(
+        "failure_kind=transient retryable=True reason=EmbeddingProviderError "
+        "message_id=message-retry dequeue_count=2 max_dequeue_count=5 "
+        "will_poison_after_failure=False" in message
+        for message in messages
+    )
+    assert request_id_context.get() is None
+
 
 class FakeEmbeddedDocument:
     def __init__(self, *, document_id: str, chunks: tuple[object, ...]) -> None:
         self.document_id = document_id
         self.chunks = chunks
+
+
+class FakeQueueMessage:
+    def __init__(
+        self,
+        *,
+        body: bytes,
+        message_id: str,
+        dequeue_count: int,
+    ) -> None:
+        self.id = message_id
+        self.dequeue_count = dequeue_count
+        self._body = body
+
+    def get_body(self) -> bytes:
+        return self._body
