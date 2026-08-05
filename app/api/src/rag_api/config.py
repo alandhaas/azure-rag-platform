@@ -29,6 +29,8 @@ AZURE_WEBJOBS_STORAGE_ENV = "AzureWebJobsStorage"
 INGESTION_QUEUE_NAME_ENV = "INGESTION_QUEUE_NAME"
 DOCUMENTS_CONTAINER_NAME_ENV = "DOCUMENTS_CONTAINER_NAME"
 DOCUMENT_METADATA_TABLE_NAME_ENV = "DOCUMENT_METADATA_TABLE_NAME"
+CORS_ALLOWED_ORIGINS_ENV = "CORS_ALLOWED_ORIGINS"
+DEFAULT_CORS_ALLOWED_ORIGINS = "http://localhost:3000,http://localhost:5173,http://localhost:5174"
 
 
 class ApiSettings(BaseSettings):
@@ -44,6 +46,10 @@ class ApiSettings(BaseSettings):
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     api_title: str = Field(default="Azure RAG Platform API", alias="API_TITLE")
     api_version: str = Field(default="0.1.0", alias="API_VERSION")
+    cors_allowed_origins: str = Field(
+        default=DEFAULT_CORS_ALLOWED_ORIGINS,
+        alias=CORS_ALLOWED_ORIGINS_ENV,
+    )
     otel_service_name: str = Field(default="rag-api", alias="OTEL_SERVICE_NAME")
     applicationinsights_connection_string: str | None = Field(
         default=None,
@@ -137,6 +143,9 @@ class ApiSettings(BaseSettings):
 
     def storage_connection_string(self) -> str:
         return _required_setting(self.azure_webjobs_storage, AZURE_WEBJOBS_STORAGE_ENV)
+
+    def parsed_cors_allowed_origins(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_allowed_origins.split(",") if origin.strip()]
 
 
 @lru_cache

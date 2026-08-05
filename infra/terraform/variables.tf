@@ -53,6 +53,11 @@ variable "qdrant_collection_name" {
   default = "documents"
 }
 
+variable "cors_allowed_origins" {
+  type    = string
+  default = "*"
+}
+
 variable "document_chunk_max_chars" {
   type    = number
   default = 1200

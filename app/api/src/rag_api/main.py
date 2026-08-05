@@ -1,6 +1,7 @@
 """Application factory for the RAG API."""
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
 from rag_api.config import ApiSettings, get_settings
@@ -32,6 +33,13 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
         },
     )
     app.state.settings = settings
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.parsed_cors_allowed_origins(),
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     app.add_middleware(RequestLoggingMiddleware)
     app.include_router(health_router)
     app.include_router(documents_router)

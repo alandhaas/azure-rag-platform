@@ -79,6 +79,17 @@ def test_api_settings_builds_storage_config_from_environment_values() -> None:
     assert settings.document_metadata_table_name == "DocumentMetadata"
 
 
+def test_api_settings_parse_cors_allowed_origins() -> None:
+    settings = ApiSettings(
+        CORS_ALLOWED_ORIGINS="http://localhost:3000, https://app.example.com ,,",
+    )
+
+    assert settings.parsed_cors_allowed_origins() == [
+        "http://localhost:3000",
+        "https://app.example.com",
+    ]
+
+
 @pytest.mark.parametrize(
     "setting_method",
     [
@@ -106,6 +117,7 @@ def test_api_settings_raise_when_required_provider_values_are_missing(
 
 def test_api_settings_use_shared_environment_names() -> None:
     assert ApiSettings.model_fields["embedding_provider"].alias == EMBEDDING_PROVIDER_ENV
+    assert ApiSettings.model_fields["cors_allowed_origins"].alias == "CORS_ALLOWED_ORIGINS"
     assert ApiSettings.model_fields["ollama_base_url"].alias == OLLAMA_BASE_URL_ENV
     assert ApiSettings.model_fields["ollama_embedding_model"].alias == OLLAMA_EMBEDDING_MODEL_ENV
     assert ApiSettings.model_fields["gemini_api_key"].alias == GEMINI_API_KEY_ENV

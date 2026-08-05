@@ -220,6 +220,10 @@ resource "azurerm_container_app" "api" {
         value = "INFO"
       }
       env {
+        name  = "CORS_ALLOWED_ORIGINS"
+        value = var.cors_allowed_origins
+      }
+      env {
         name  = "APPLICATIONINSIGHTS_CONNECTION_STRING"
         value = azurerm_application_insights.main.connection_string
       }
