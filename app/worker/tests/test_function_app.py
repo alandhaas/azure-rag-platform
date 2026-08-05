@@ -89,7 +89,7 @@ def test_worker_logs_include_request_id(caplog: pytest.LogCaptureFixture) -> Non
     assert "logged-request-id" in request_ids
 
 
-async def test_ingest_document_validates_logs_and_generates_embeddings(
+def test_ingest_document_validates_logs_and_generates_embeddings(
     caplog: pytest.LogCaptureFixture,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -110,7 +110,7 @@ async def test_ingest_document_validates_logs_and_generates_embeddings(
     monkeypatch.setattr(function_app, "_run_document_indexing_pipeline", fake_pipeline)
 
     with caplog.at_level(logging.INFO, logger="rag_worker.functions"):
-        await ingest_document(msg)
+        ingest_document(msg)
 
     request_ids = [
         cast(str | None, getattr(record, "request_id", None)) for record in caplog.records
@@ -132,16 +132,16 @@ async def test_ingest_document_validates_logs_and_generates_embeddings(
     assert request_id_context.get() is None
 
 
-async def test_ingest_document_rejects_invalid_command() -> None:
+def test_ingest_document_rejects_invalid_command() -> None:
     msg = func.QueueMessage(body=b"not-json")
 
     with pytest.raises(IngestionCommandError):
-        await ingest_document(msg)
+        ingest_document(msg)
 
     assert request_id_context.get() is None
 
 
-async def test_ingest_document_logs_invalid_command_with_retry_classification(
+def test_ingest_document_logs_invalid_command_with_retry_classification(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     msg = cast(
@@ -155,7 +155,7 @@ async def test_ingest_document_logs_invalid_command_with_retry_classification(
 
     with caplog.at_level(logging.ERROR, logger="rag_worker.functions"):
         with pytest.raises(IngestionCommandError):
-            await ingest_document(msg)
+            ingest_document(msg)
 
     messages = [record.getMessage() for record in caplog.records]
     request_ids = [
@@ -172,7 +172,7 @@ async def test_ingest_document_logs_invalid_command_with_retry_classification(
     assert request_id_context.get() is None
 
 
-async def test_ingest_document_logs_transient_failure_before_retry(
+def test_ingest_document_logs_transient_failure_before_retry(
     caplog: pytest.LogCaptureFixture,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -199,7 +199,7 @@ async def test_ingest_document_logs_transient_failure_before_retry(
 
     with caplog.at_level(logging.ERROR, logger="rag_worker.functions"):
         with pytest.raises(EmbeddingProviderError):
-            await ingest_document(msg)
+            ingest_document(msg)
 
     messages = [record.getMessage() for record in caplog.records]
     request_ids = [

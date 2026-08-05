@@ -23,6 +23,7 @@ class RequestIdFilter(logging.Filter):
 def configure_logging(level: str = "INFO") -> None:
     root_logger = logging.getLogger()
     root_logger.setLevel(level)
+    logging.getLogger("azure").setLevel(logging.WARNING)
     _ensure_request_id_filter(root_logger)
 
     if root_logger.handlers:

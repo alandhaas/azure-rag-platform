@@ -289,11 +289,13 @@ async def test_gemini_embedding_provider_posts_batch_to_embed_endpoint() -> None
             {
                 "model": "models/gemini-embedding-001",
                 "content": {"parts": [{"text": "first"}]},
+                "outputDimensionality": 2,
                 "embedContentConfig": {"outputDimensionality": 2},
             },
             {
                 "model": "models/gemini-embedding-001",
                 "content": {"parts": [{"text": "second"}]},
+                "outputDimensionality": 2,
                 "embedContentConfig": {"outputDimensionality": 2},
             },
         ]

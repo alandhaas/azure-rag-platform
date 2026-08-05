@@ -24,12 +24,17 @@ from rag_core.vectorstore import (
     QdrantVectorStoreConfig,
 )
 
+AZURE_WEBJOBS_STORAGE_ENV = "AzureWebJobsStorage"
+INGESTION_QUEUE_NAME_ENV = "INGESTION_QUEUE_NAME"
+DOCUMENTS_CONTAINER_NAME_ENV = "DOCUMENTS_CONTAINER_NAME"
+DOCUMENT_METADATA_TABLE_NAME_ENV = "DOCUMENT_METADATA_TABLE_NAME"
+
 
 class ApiSettings(BaseSettings):
     """Environment-backed API settings."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=("../../.env", ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -67,6 +72,20 @@ class ApiSettings(BaseSettings):
     qdrant_url: str | None = Field(default=None, alias=QDRANT_URL_ENV)
     qdrant_collection_name: str | None = Field(default=None, alias=QDRANT_COLLECTION_NAME_ENV)
     qdrant_api_key: str | None = Field(default=None, alias=QDRANT_API_KEY_ENV)
+
+    azure_webjobs_storage: str | None = Field(default=None, alias=AZURE_WEBJOBS_STORAGE_ENV)
+    ingestion_queue_name: str = Field(
+        default="documents-to-ingest",
+        alias=INGESTION_QUEUE_NAME_ENV,
+    )
+    documents_container_name: str = Field(
+        default="documents",
+        alias=DOCUMENTS_CONTAINER_NAME_ENV,
+    )
+    document_metadata_table_name: str = Field(
+        default="DocumentMetadata",
+        alias=DOCUMENT_METADATA_TABLE_NAME_ENV,
+    )
 
     azure_tenant_id: str | None = Field(default=None, alias="AZURE_TENANT_ID")
     azure_client_id: str | None = Field(default=None, alias="AZURE_CLIENT_ID")
@@ -112,6 +131,9 @@ class ApiSettings(BaseSettings):
         if self.qdrant_api_key:
             env[QDRANT_API_KEY_ENV] = self.qdrant_api_key
         return QdrantVectorStoreConfig.from_env(env)
+
+    def storage_connection_string(self) -> str:
+        return _required_setting(self.azure_webjobs_storage, AZURE_WEBJOBS_STORAGE_ENV)
 
 
 @lru_cache

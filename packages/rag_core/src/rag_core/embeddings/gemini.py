@@ -79,6 +79,7 @@ def _embedding_payload(
             "content": {"parts": [{"text": text}]},
         }
         if config.output_dimensionality is not None:
+            request["outputDimensionality"] = config.output_dimensionality
             request["embedContentConfig"] = {
                 "outputDimensionality": config.output_dimensionality
             }

@@ -65,9 +65,28 @@ def test_api_settings_builds_qdrant_config_from_environment_values() -> None:
     assert config.api_key is None
 
 
+def test_api_settings_builds_storage_config_from_environment_values() -> None:
+    settings = ApiSettings(
+        AzureWebJobsStorage="UseDevelopmentStorage=true",
+        INGESTION_QUEUE_NAME="queue",
+        DOCUMENTS_CONTAINER_NAME="documents",
+        DOCUMENT_METADATA_TABLE_NAME="DocumentMetadata",
+    )
+
+    assert settings.storage_connection_string() == "UseDevelopmentStorage=true"
+    assert settings.ingestion_queue_name == "queue"
+    assert settings.documents_container_name == "documents"
+    assert settings.document_metadata_table_name == "DocumentMetadata"
+
+
 @pytest.mark.parametrize(
     "setting_method",
-    ["ollama_embedding_config", "gemini_embedding_config", "qdrant_vector_store_config"],
+    [
+        "ollama_embedding_config",
+        "gemini_embedding_config",
+        "qdrant_vector_store_config",
+        "storage_connection_string",
+    ],
 )
 def test_api_settings_raise_when_required_provider_values_are_missing(
     setting_method: str,
@@ -78,6 +97,7 @@ def test_api_settings_raise_when_required_provider_values_are_missing(
         GEMINI_API_KEY=None,
         QDRANT_URL=None,
         QDRANT_COLLECTION_NAME=None,
+        AzureWebJobsStorage=None,
     )
 
     with pytest.raises(RuntimeError):
@@ -98,3 +118,10 @@ def test_api_settings_use_shared_environment_names() -> None:
     )
     assert ApiSettings.model_fields["qdrant_url"].alias == QDRANT_URL_ENV
     assert ApiSettings.model_fields["qdrant_collection_name"].alias == QDRANT_COLLECTION_NAME_ENV
+    assert ApiSettings.model_fields["azure_webjobs_storage"].alias == "AzureWebJobsStorage"
+    assert ApiSettings.model_fields["ingestion_queue_name"].alias == "INGESTION_QUEUE_NAME"
+    assert ApiSettings.model_fields["documents_container_name"].alias == "DOCUMENTS_CONTAINER_NAME"
+    assert (
+        ApiSettings.model_fields["document_metadata_table_name"].alias
+        == "DOCUMENT_METADATA_TABLE_NAME"
+    )

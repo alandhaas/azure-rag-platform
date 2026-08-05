@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -47,7 +48,12 @@ class _QueueMessageMetadata:
     queue_name="%INGESTION_QUEUE_NAME%",
     connection="AzureWebJobsStorage",
 )
-async def ingest_document(msg: func.QueueMessage) -> None:
+def ingest_document(msg: func.QueueMessage) -> None:
+    """Run ingestion from a synchronous Functions-safe wrapper."""
+    asyncio.run(_ingest_document_async(msg))
+
+
+async def _ingest_document_async(msg: func.QueueMessage) -> None:
     """Validate a queue message, then generate embeddings for document chunks."""
     started_at = time.perf_counter()
     queue_message = _queue_message_metadata(msg)

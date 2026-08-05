@@ -1,4 +1,4 @@
-.PHONY: install lint typecheck test check api worker compose-up compose-down compose-build compose-logs compose-ps
+.PHONY: install lint typecheck test check api worker worker-functions services-up compose-up compose-down compose-build compose-logs compose-ps
 
 install:
 	uv sync
@@ -18,10 +18,16 @@ api:
 	uv run uvicorn rag_api.main:app --host 0.0.0.0 --port 8000 --reload
 
 worker:
-	cd app/worker && func start
+	cd app/worker && PYTHONPATH=src:../../packages/rag_core/src uv run --project ../.. python -m rag_worker.local_worker
+
+worker-functions:
+	cd app/worker && PYTHONPATH=src:../../packages/rag_core/src uv run --project ../.. func start
+
+services-up:
+	docker compose up -d qdrant qdrant-init azurite azurite-init
 
 compose-up:
-	docker compose up -d qdrant qdrant-init azurite api worker
+	docker compose up -d qdrant qdrant-init azurite azurite-init api worker
 
 compose-down:
 	docker compose down

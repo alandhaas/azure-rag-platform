@@ -5,6 +5,8 @@ services:
       dockerfile: app/api/Dockerfile
     image: azure-rag-platform-api:local
     depends_on:
+      azurite-init:
+        condition: service_completed_successfully
       qdrant-init:
         condition: service_completed_successfully
     environment:
@@ -27,6 +29,10 @@ services:
       QDRANT_URL: http://qdrant:6333
       QDRANT_COLLECTION_NAME: ${QDRANT_COLLECTION_NAME:-documents}
       QDRANT_API_KEY: ""
+      AzureWebJobsStorage: ${COMPOSE_AZURE_WEBJOBS_STORAGE:-DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;}
+      INGESTION_QUEUE_NAME: ${INGESTION_QUEUE_NAME:-documents-to-ingest}
+      DOCUMENTS_CONTAINER_NAME: ${DOCUMENTS_CONTAINER_NAME:-documents}
+      DOCUMENT_METADATA_TABLE_NAME: ${DOCUMENT_METADATA_TABLE_NAME:-DocumentMetadata}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -39,8 +45,8 @@ services:
       dockerfile: app/worker/Dockerfile
     image: azure-rag-platform-worker:local
     depends_on:
-      azurite:
-        condition: service_started
+      azurite-init:
+        condition: service_completed_successfully
       qdrant-init:
         condition: service_completed_successfully
     environment:
@@ -123,6 +129,7 @@ services:
       - --location
       - /data
       - --skipApiVersionCheck
+      - --disableTelemetry
     ports:
       - "${AZURITE_BLOB_PORT:-10000}:10000"
       - "${AZURITE_QUEUE_PORT:-10001}:10001"
@@ -130,6 +137,37 @@ services:
     volumes:
       - azurite_data:/data
     restart: unless-stopped
+
+  azurite-init:
+    image: mcr.microsoft.com/azure-cli:2.88.0
+    depends_on:
+      - azurite
+    environment:
+      AZURITE_CONNECTION_STRING: ${COMPOSE_AZURE_WEBJOBS_STORAGE:-DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;}
+      DOCUMENTS_CONTAINER_NAME: ${DOCUMENTS_CONTAINER_NAME:-documents}
+      INGESTION_QUEUE_NAME: ${INGESTION_QUEUE_NAME:-documents-to-ingest}
+      DOCUMENT_METADATA_TABLE_NAME: ${DOCUMENT_METADATA_TABLE_NAME:-DocumentMetadata}
+    command:
+      - sh
+      - -c
+      - |
+        until az storage queue create \
+          --name "$${INGESTION_QUEUE_NAME}" \
+          --connection-string "$${AZURITE_CONNECTION_STRING}" \
+          --output none; do
+          sleep 1
+        done
+
+        az storage container create \
+          --name "$${DOCUMENTS_CONTAINER_NAME}" \
+          --connection-string "$${AZURITE_CONNECTION_STRING}" \
+          --output none
+
+        az storage table create \
+          --name "$${DOCUMENT_METADATA_TABLE_NAME}" \
+          --connection-string "$${AZURITE_CONNECTION_STRING}" \
+          --output none
+    restart: "no"
 
 volumes:
   azurite_data:

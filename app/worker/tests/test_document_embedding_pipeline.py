@@ -54,6 +54,7 @@ async def test_document_embedding_pipeline_loads_chunks_and_embeds_document() ->
 
 async def test_document_indexing_pipeline_upserts_embedded_chunks() -> None:
     vector_store = FakeVectorStore()
+    status_store = FakeStatusStore()
     pipeline = DocumentIndexingPipeline(
         embedding_pipeline=DocumentEmbeddingPipeline(
             blob_loader=FakeBlobLoader(),
@@ -62,15 +63,15 @@ async def test_document_indexing_pipeline_upserts_embedded_chunks() -> None:
             embedding_provider=FakeEmbeddingProvider(),
         ),
         vector_store=vector_store,
+        status_store=status_store,
+    )
+    command = IngestionCommand(
+        document_id="doc-123",
+        blob_uri="azurite://documents/doc-123.txt",
+        correlation_id="request-123",
     )
 
-    result = await pipeline.process(
-        IngestionCommand(
-            document_id="doc-123",
-            blob_uri="azurite://documents/doc-123.txt",
-            correlation_id="request-123",
-        )
-    )
+    result = await pipeline.process(command)
 
     assert result.document_id == "doc-123"
     assert vector_store.points is not None
@@ -79,6 +80,39 @@ async def test_document_indexing_pipeline_upserts_embedded_chunks() -> None:
     assert vector_store.points[0].payload["document_id"] == "doc-123"
     assert vector_store.points[0].payload["blob_uri"] == "azurite://documents/doc-123.txt"
     assert vector_store.points[0].payload["chunk_index"] == 0
+    assert status_store.calls == [
+        "processing:doc-123",
+        "indexed:doc-123:3",
+    ]
+
+
+async def test_document_indexing_pipeline_marks_failed_when_indexing_fails() -> None:
+    status_store = FakeStatusStore()
+    pipeline = DocumentIndexingPipeline(
+        embedding_pipeline=DocumentEmbeddingPipeline(
+            blob_loader=FakeBlobLoader(),
+            text_extractor=DocumentTextExtractor(),
+            text_chunker=TextChunker(ChunkingConfig(max_chars=12, overlap_chars=2)),
+            embedding_provider=FakeEmbeddingProvider(),
+        ),
+        vector_store=FailingVectorStore(),
+        status_store=status_store,
+    )
+    command = IngestionCommand(
+        document_id="doc-123",
+        blob_uri="azurite://documents/doc-123.txt",
+        correlation_id="request-123",
+    )
+
+    try:
+        await pipeline.process(command)
+    except RuntimeError:
+        pass
+
+    assert status_store.calls == [
+        "processing:doc-123",
+        "failed:doc-123:RuntimeError: no index",
+    ]
 
 
 async def test_document_indexing_pipeline_is_idempotent_for_duplicate_messages() -> None:
@@ -157,3 +191,22 @@ class FakeVectorStore:
     async def upsert(self, points: Sequence[VectorPoint]) -> None:
         self.points = points
         self.upsert_calls.append(points)
+
+
+class FailingVectorStore:
+    async def upsert(self, points: Sequence[VectorPoint]) -> None:
+        raise RuntimeError("no index")
+
+
+class FakeStatusStore:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def mark_processing(self, command: IngestionCommand) -> None:
+        self.calls.append(f"processing:{command.document_id}")
+
+    def mark_indexed(self, command: IngestionCommand, *, chunk_count: int) -> None:
+        self.calls.append(f"indexed:{command.document_id}:{chunk_count}")
+
+    def mark_failed(self, command: IngestionCommand, *, error: str) -> None:
+        self.calls.append(f"failed:{command.document_id}:{error}")

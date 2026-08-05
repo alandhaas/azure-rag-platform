@@ -1,3 +1,5 @@
+from typing import Any, cast
+
 import pytest
 from pydantic import ValidationError
 from rag_core.embeddings import (
@@ -24,7 +26,8 @@ from rag_worker.config import (
 
 
 def test_worker_settings_use_local_defaults() -> None:
-    settings = WorkerSettings()
+    settings_factory = cast(Any, WorkerSettings)
+    settings = settings_factory(_env_file=None)
 
     assert settings.app_env == "local"
     assert settings.log_level == "INFO"

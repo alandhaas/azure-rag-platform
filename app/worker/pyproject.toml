@@ -5,8 +5,10 @@ description = "Azure Functions worker for asynchronous RAG ingestion."
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "azure-data-tables>=12.6.0",
     "azure-functions>=1.24.0",
     "azure-storage-blob>=12.24.0",
+    "azure-storage-queue>=12.12.0",
     "pydantic-settings>=2.7.0",
     "pypdf>=6.4.0",
     "rag-core",

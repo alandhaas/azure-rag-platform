@@ -1,20 +1,50 @@
 # Local development
 
-This project can run locally with Google AI Studio for model calls and Qdrant,
-Azurite, the API, and the worker in Docker Compose.
+This project can run locally with Google AI Studio for model calls, Qdrant for
+vectors, and Azurite for Blob/Queue/Table storage.
 
 ## Commands
 
 ```bash
 make install
 make check
-make compose-up
-make compose-logs
+make services-up
+make api
+make worker
 make compose-down
 ```
 
-Run the API directly from the workspace with `make api`. Run the Azure Functions
-worker directly with `make worker`.
+For now, run only Qdrant and Azurite in Docker with `make services-up`, then run
+the API and local queue worker in separate terminals with `make api` and
+`make worker`. The local worker uses the same ingestion pipeline as the Azure
+Functions trigger, but avoids Azure Functions Core Tools' local Python/gRPC
+host. Use `make worker-functions` only when you specifically want to test the
+Functions host.
+
+## Upload and query
+
+Upload a PDF for indexing:
+
+```bash
+curl -sS -X POST http://localhost:8000/documents \
+  -H "x-request-id: local-test-1" \
+  -F "file=@/path/to/document.pdf;type=application/pdf"
+```
+
+Check ingestion status with the returned `document_id`:
+
+```bash
+curl -sS http://localhost:8000/documents/{document_id}
+```
+
+After the worker logs `document_chunks_indexed`, query the indexed chunks:
+
+```bash
+curl -sS -X POST http://localhost:8000/queries/retrieval \
+  -H "content-type: application/json" \
+  -H "x-request-id: local-test-2" \
+  -d '{"text":"What is this document about?","top_k":5}'
+```
 
 ## Local services
 

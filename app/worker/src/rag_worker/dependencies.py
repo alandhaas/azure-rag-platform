@@ -9,6 +9,7 @@ from rag_core.vectorstore import QdrantVectorStore
 from rag_worker.blob_loader import BlobDocumentLoader
 from rag_worker.config import WorkerSettings, get_settings
 from rag_worker.ingestion import DocumentEmbeddingPipeline, DocumentIndexingPipeline
+from rag_worker.status import DocumentStatusStore
 from rag_worker.text_extraction import DocumentTextExtractor
 
 
@@ -29,6 +30,11 @@ def create_document_indexing_pipeline(
             embedding_provider=create_embedding_provider(settings),
         ),
         vector_store=QdrantVectorStore(settings.qdrant_vector_store_config()),
+        status_store=DocumentStatusStore(
+            connection_string=settings.storage_connection_string(),
+            table_name=settings.document_metadata_table_name,
+            queue_name=settings.ingestion_queue_name,
+        ),
     )
 
 
