@@ -99,7 +99,7 @@ def test_ingest_document_validates_logs_and_generates_embeddings(
             b'{"document_id":"doc-123",'
             b'"blob_uri":"azurite://documents/doc-123.pdf",'
             b'"correlation_id":"queue-request-123"}'
-        )
+        ),
     )
     pipeline_calls: list[str] = []
 

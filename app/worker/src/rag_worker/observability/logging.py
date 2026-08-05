@@ -7,9 +7,7 @@ from typing import Final
 
 from rag_worker.observability.context import request_id_context
 
-LOG_FORMAT: Final = (
-    "%(asctime)s %(levelname)s %(name)s request_id=%(request_id)s %(message)s"
-)
+LOG_FORMAT: Final = "%(asctime)s %(levelname)s %(name)s request_id=%(request_id)s %(message)s"
 
 
 class RequestIdFilter(logging.Filter):

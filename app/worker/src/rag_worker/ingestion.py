@@ -91,9 +91,7 @@ class DocumentEmbeddingPipeline:
                 "content_type": document.content_type or "",
             },
         )
-        embeddings = await self._embedding_provider.embed(
-            [chunk.content for chunk in chunks]
-        )
+        embeddings = await self._embedding_provider.embed([chunk.content for chunk in chunks])
         return EmbeddedDocument(
             document_id=command.document_id,
             blob_uri=command.blob_uri,
@@ -160,10 +158,7 @@ def _combine_chunks_and_embeddings(
 
 
 def _point_id(document: EmbeddedDocument, chunk: TextChunk) -> str:
-    stable_key = (
-        f"{document.document_id}:{chunk.chunk_index}:"
-        f"{chunk.char_start}:{chunk.char_end}"
-    )
+    stable_key = f"{document.document_id}:{chunk.chunk_index}:{chunk.char_start}:{chunk.char_end}"
     return str(uuid5(NAMESPACE_URL, stable_key))
 
 

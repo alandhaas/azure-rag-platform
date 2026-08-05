@@ -80,9 +80,7 @@ def _embedding_payload(
         }
         if config.output_dimensionality is not None:
             request["outputDimensionality"] = config.output_dimensionality
-            request["embedContentConfig"] = {
-                "outputDimensionality": config.output_dimensionality
-            }
+            request["embedContentConfig"] = {"outputDimensionality": config.output_dimensionality}
         requests.append(request)
     return {"requests": requests}
 

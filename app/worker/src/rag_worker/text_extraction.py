@@ -37,10 +37,9 @@ def _is_pdf(document: LoadedBlobDocument) -> bool:
 
 
 def _is_plain_text(document: LoadedBlobDocument) -> bool:
-    return (
-        document.content_type in {"text/plain", "text/markdown"}
-        or _suffix(document.blob_uri) in {".txt", ".md", ".markdown"}
-    )
+    return document.content_type in {"text/plain", "text/markdown"} or _suffix(
+        document.blob_uri
+    ) in {".txt", ".md", ".markdown"}
 
 
 def _extract_utf8_text(content: bytes) -> str:

@@ -13,6 +13,7 @@ Optional environment variables:
   AZURE_LOCATION=westeurope
   AZURE_ROLE=Owner
   AZURE_APP_NAME=azure-rag-platform-github
+  GITHUB_OIDC_SUBJECT=<exact-subject-from-AADSTS700213-error>
   TF_STATE_STORAGE_ACCOUNT=<globally-unique-storage-account-name>
   GEMINI_API_KEY=<google-ai-studio-api-key>
 
@@ -91,15 +92,23 @@ else
 fi
 
 federated_name="github-main"
-federated_subject="repo:${repo}:ref:refs/heads/main"
-existing_federated="$(
+federated_subject="${GITHUB_OIDC_SUBJECT:-repo:${repo}:ref:refs/heads/main}"
+existing_federated_subject="$(
   az ad app federated-credential list \
     --id "$client_id" \
-    --query "[?name=='${federated_name}'].name | [0]" \
+    --query "[?name=='${federated_name}'].subject | [0]" \
     --output tsv
 )"
 
-if [[ -z "$existing_federated" ]]; then
+if [[ -n "$existing_federated_subject" && "$existing_federated_subject" != "$federated_subject" ]]; then
+  echo "Replacing GitHub OIDC federated credential because the subject changed"
+  az ad app federated-credential delete \
+    --id "$client_id" \
+    --federated-credential-id "$federated_name"
+  existing_federated_subject=""
+fi
+
+if [[ -z "$existing_federated_subject" ]]; then
   echo "Creating GitHub OIDC federated credential"
   federated_parameters="$(printf '{"name":"%s","issuer":"https://token.actions.githubusercontent.com","subject":"%s","audiences":["api://AzureADTokenExchange"]}' "$federated_name" "$federated_subject")"
   az ad app federated-credential create \
@@ -107,7 +116,7 @@ if [[ -z "$existing_federated" ]]; then
     --parameters "$federated_parameters" \
     --output none
 else
-  echo "Federated credential already exists"
+  echo "Federated credential already exists with matching subject"
 fi
 
 tf_state_storage_account="${TF_STATE_STORAGE_ACCOUNT:-}"

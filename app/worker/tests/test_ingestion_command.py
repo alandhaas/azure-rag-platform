@@ -41,8 +41,7 @@ def test_ingestion_command_serializes_to_stable_json() -> None:
     )
 
     assert (
-        command.to_json()
-        == '{"blob_uri":"azurite://documents/doc-123.pdf",'
+        command.to_json() == '{"blob_uri":"azurite://documents/doc-123.pdf",'
         '"correlation_id":"request-123","document_id":"doc-123"}'
     )
 

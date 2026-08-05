@@ -159,10 +159,7 @@ def test_worker_settings_use_shared_environment_names() -> None:
     assert WorkerSettings.model_fields["gemini_api_key"].alias == GEMINI_API_KEY_ENV
     assert WorkerSettings.model_fields["google_api_key"].alias == GOOGLE_API_KEY_ENV
     assert WorkerSettings.model_fields["gemini_base_url"].alias == GEMINI_BASE_URL_ENV
-    assert (
-        WorkerSettings.model_fields["gemini_embedding_model"].alias
-        == GEMINI_EMBEDDING_MODEL_ENV
-    )
+    assert WorkerSettings.model_fields["gemini_embedding_model"].alias == GEMINI_EMBEDDING_MODEL_ENV
     assert (
         WorkerSettings.model_fields["gemini_embedding_output_dimensionality"].alias
         == GEMINI_EMBEDDING_OUTPUT_DIMENSIONALITY_ENV

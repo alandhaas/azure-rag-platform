@@ -144,8 +144,8 @@ class MissingStatusRepository:
 def _test_client(service: Any, *, status_repository: Any | None = None) -> Any:
     app = create_app(ApiSettings())
     app.dependency_overrides[get_document_ingestion_service] = lambda: service
-    app.dependency_overrides[get_document_status_repository] = (
-        lambda: status_repository or FakeStatusRepository()
+    app.dependency_overrides[get_document_status_repository] = lambda: (
+        status_repository or FakeStatusRepository()
     )
     return TestClient(app)
 

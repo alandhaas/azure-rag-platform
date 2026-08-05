@@ -192,7 +192,7 @@ def _decode_message_content(content: str) -> str:
         return stripped
     try:
         return base64.b64decode(stripped).decode("utf-8")
-    except (ValueError, UnicodeDecodeError):
+    except ValueError, UnicodeDecodeError:
         return stripped
 
 

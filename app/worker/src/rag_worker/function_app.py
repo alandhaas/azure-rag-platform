@@ -88,8 +88,7 @@ async def _ingest_document_async(msg: func.QueueMessage) -> None:
 
     try:
         logger.info(
-            "ingestion_command_received document_id=%s blob_uri=%s "
-            "message_id=%s dequeue_count=%s",
+            "ingestion_command_received document_id=%s blob_uri=%s message_id=%s dequeue_count=%s",
             command.document_id,
             command.blob_uri,
             queue_message.message_id,
