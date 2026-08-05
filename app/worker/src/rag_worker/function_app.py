@@ -62,9 +62,9 @@ async def ingest_document(msg: func.QueueMessage) -> None:
             command.blob_uri,
             extra={"request_id": request_id},
         )
-        embedded_document = await _run_document_embedding_pipeline(command)
+        embedded_document = await _run_document_indexing_pipeline(command)
         logger.info(
-            "document_embeddings_generated document_id=%s chunk_count=%s",
+            "document_chunks_indexed document_id=%s chunk_count=%s",
             embedded_document.document_id,
             len(embedded_document.chunks),
             extra={"request_id": request_id},
@@ -121,9 +121,9 @@ def _duration_ms(started_at: float) -> float:
     return (time.perf_counter() - started_at) * 1000
 
 
-async def _run_document_embedding_pipeline(
+async def _run_document_indexing_pipeline(
     command: IngestionCommand,
 ) -> _EmbeddedDocumentResult:
-    from rag_worker.dependencies import create_document_embedding_pipeline
+    from rag_worker.dependencies import create_document_indexing_pipeline
 
-    return await create_document_embedding_pipeline().process(command)
+    return await create_document_indexing_pipeline().process(command)

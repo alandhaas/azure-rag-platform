@@ -106,7 +106,7 @@ async def test_ingest_document_validates_logs_and_generates_embeddings(
         pipeline_calls.append(command.document_id)
         return FakeEmbeddedDocument(document_id=command.document_id, chunks=(object(), object()))
 
-    monkeypatch.setattr(function_app, "_run_document_embedding_pipeline", fake_pipeline)
+    monkeypatch.setattr(function_app, "_run_document_indexing_pipeline", fake_pipeline)
 
     with caplog.at_level(logging.INFO, logger="rag_worker.functions"):
         await ingest_document(msg)
@@ -123,7 +123,7 @@ async def test_ingest_document_validates_logs_and_generates_embeddings(
         for message in messages
     )
     assert any(
-        "document_embeddings_generated document_id=doc-123 chunk_count=2" in message
+        "document_chunks_indexed document_id=doc-123 chunk_count=2" in message
         for message in messages
     )
     assert pipeline_calls == ["doc-123"]

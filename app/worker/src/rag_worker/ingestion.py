@@ -5,9 +5,11 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
+from uuid import NAMESPACE_URL, uuid5
 
 from rag_core.embeddings import Embedding, EmbeddingProvider
 from rag_core.ingestion import TextChunk
+from rag_core.vectorstore import VectorPoint
 
 from rag_worker.blob_loader import LoadedBlobDocument
 from rag_worker.commands import IngestionCommand
@@ -28,6 +30,10 @@ class Chunker(Protocol):
         *,
         source_metadata: dict[str, object],
     ) -> list[TextChunk]: ...
+
+
+class VectorIndexer(Protocol):
+    async def upsert(self, points: Sequence[VectorPoint]) -> None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,6 +93,41 @@ class DocumentEmbeddingPipeline:
         )
 
 
+class DocumentIndexingPipeline:
+    """Generate document chunk embeddings and upsert them into the vector store."""
+
+    def __init__(
+        self,
+        *,
+        embedding_pipeline: DocumentEmbeddingPipeline,
+        vector_store: VectorIndexer,
+    ) -> None:
+        self._embedding_pipeline = embedding_pipeline
+        self._vector_store = vector_store
+
+    async def process(self, command: IngestionCommand) -> EmbeddedDocument:
+        document = await self._embedding_pipeline.process(command)
+        await self._vector_store.upsert(embedded_document_to_vector_points(document))
+        return document
+
+
+def embedded_document_to_vector_points(document: EmbeddedDocument) -> list[VectorPoint]:
+    """Convert embedded chunks into deterministic vector-store points."""
+    return [
+        VectorPoint(
+            id=_point_id(document, embedded_chunk.chunk),
+            embedding=embedded_chunk.embedding,
+            payload={
+                **embedded_chunk.chunk.metadata,
+                "document_id": document.document_id,
+                "blob_uri": document.blob_uri,
+                "content": embedded_chunk.chunk.content,
+            },
+        )
+        for embedded_chunk in document.chunks
+    ]
+
+
 def _combine_chunks_and_embeddings(
     chunks: Sequence[TextChunk],
     embeddings: Sequence[Embedding],
@@ -97,3 +138,11 @@ def _combine_chunks_and_embeddings(
         EmbeddedDocumentChunk(chunk=chunk, embedding=embedding)
         for chunk, embedding in zip(chunks, embeddings, strict=True)
     )
+
+
+def _point_id(document: EmbeddedDocument, chunk: TextChunk) -> str:
+    stable_key = (
+        f"{document.document_id}:{chunk.chunk_index}:"
+        f"{chunk.char_start}:{chunk.char_end}"
+    )
+    return str(uuid5(NAMESPACE_URL, stable_key))
