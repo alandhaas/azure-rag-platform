@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import logging
 from importlib import util
@@ -6,7 +8,8 @@ from typing import cast
 
 import azure.functions as func
 import pytest
-from rag_worker.commands import IngestionCommandError
+import rag_worker.function_app as function_app
+from rag_worker.commands import IngestionCommand, IngestionCommandError
 from rag_worker.function_app import app, ingest_document, live_health
 from rag_worker.observability import request_id_context, resolve_request_id
 
@@ -86,8 +89,9 @@ def test_worker_logs_include_request_id(caplog: pytest.LogCaptureFixture) -> Non
     assert "logged-request-id" in request_ids
 
 
-def test_ingest_document_validates_and_logs_command(
+async def test_ingest_document_validates_logs_and_generates_embeddings(
     caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     msg = func.QueueMessage(
         body=(
@@ -96,9 +100,16 @@ def test_ingest_document_validates_and_logs_command(
             b'"correlation_id":"queue-request-123"}'
         )
     )
+    pipeline_calls: list[str] = []
+
+    async def fake_pipeline(command: IngestionCommand) -> FakeEmbeddedDocument:
+        pipeline_calls.append(command.document_id)
+        return FakeEmbeddedDocument(document_id=command.document_id, chunks=(object(), object()))
+
+    monkeypatch.setattr(function_app, "_run_document_embedding_pipeline", fake_pipeline)
 
     with caplog.at_level(logging.INFO, logger="rag_worker.functions"):
-        ingest_document(msg)
+        await ingest_document(msg)
 
     request_ids = [
         cast(str | None, getattr(record, "request_id", None)) for record in caplog.records
@@ -111,11 +122,22 @@ def test_ingest_document_validates_and_logs_command(
         "blob_uri=azurite://documents/doc-123.pdf" in message
         for message in messages
     )
+    assert any(
+        "document_embeddings_generated document_id=doc-123 chunk_count=2" in message
+        for message in messages
+    )
+    assert pipeline_calls == ["doc-123"]
     assert request_id_context.get() is None
 
 
-def test_ingest_document_rejects_invalid_command() -> None:
+async def test_ingest_document_rejects_invalid_command() -> None:
     msg = func.QueueMessage(body=b"not-json")
 
     with pytest.raises(IngestionCommandError):
-        ingest_document(msg)
+        await ingest_document(msg)
+
+
+class FakeEmbeddedDocument:
+    def __init__(self, *, document_id: str, chunks: tuple[object, ...]) -> None:
+        self.document_id = document_id
+        self.chunks = chunks

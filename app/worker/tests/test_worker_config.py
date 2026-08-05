@@ -7,6 +7,8 @@ from rag_core.embeddings import (
 from rag_core.vectorstore import QDRANT_COLLECTION_NAME_ENV, QDRANT_URL_ENV
 from rag_worker.config import (
     AZURE_WEBJOBS_STORAGE_ENV,
+    DOCUMENT_CHUNK_MAX_CHARS_ENV,
+    DOCUMENT_CHUNK_OVERLAP_CHARS_ENV,
     DOCUMENT_METADATA_TABLE_NAME_ENV,
     DOCUMENTS_CONTAINER_NAME_ENV,
     INGESTION_QUEUE_NAME_ENV,
@@ -25,6 +27,8 @@ def test_worker_settings_use_local_defaults() -> None:
     assert settings.documents_container_name == "documents"
     assert settings.document_metadata_table_name == "DocumentMetadata"
     assert settings.worker_retry_limit == 5
+    assert settings.document_chunk_max_chars == 1200
+    assert settings.document_chunk_overlap_chars == 200
 
 
 def test_worker_settings_builds_ollama_embedding_config_from_environment_values() -> None:
@@ -82,6 +86,11 @@ def test_worker_settings_validate_retry_limit() -> None:
         WorkerSettings(WORKER_RETRY_LIMIT=0)
 
 
+def test_worker_settings_validate_chunking_values() -> None:
+    with pytest.raises(ValidationError):
+        WorkerSettings(DOCUMENT_CHUNK_MAX_CHARS=0)
+
+
 def test_worker_settings_use_shared_environment_names() -> None:
     assert WorkerSettings.model_fields["azure_webjobs_storage"].alias == AZURE_WEBJOBS_STORAGE_ENV
     assert WorkerSettings.model_fields["ingestion_queue_name"].alias == INGESTION_QUEUE_NAME_ENV
@@ -94,6 +103,14 @@ def test_worker_settings_use_shared_environment_names() -> None:
         == DOCUMENT_METADATA_TABLE_NAME_ENV
     )
     assert WorkerSettings.model_fields["worker_retry_limit"].alias == WORKER_RETRY_LIMIT_ENV
+    assert (
+        WorkerSettings.model_fields["document_chunk_max_chars"].alias
+        == DOCUMENT_CHUNK_MAX_CHARS_ENV
+    )
+    assert (
+        WorkerSettings.model_fields["document_chunk_overlap_chars"].alias
+        == DOCUMENT_CHUNK_OVERLAP_CHARS_ENV
+    )
     assert WorkerSettings.model_fields["ollama_base_url"].alias == OLLAMA_BASE_URL_ENV
     assert WorkerSettings.model_fields["ollama_embedding_model"].alias == OLLAMA_EMBEDDING_MODEL_ENV
     assert WorkerSettings.model_fields["qdrant_url"].alias == QDRANT_URL_ENV

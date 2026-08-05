@@ -23,6 +23,8 @@ INGESTION_QUEUE_NAME_ENV = "INGESTION_QUEUE_NAME"
 DOCUMENTS_CONTAINER_NAME_ENV = "DOCUMENTS_CONTAINER_NAME"
 DOCUMENT_METADATA_TABLE_NAME_ENV = "DOCUMENT_METADATA_TABLE_NAME"
 WORKER_RETRY_LIMIT_ENV = "WORKER_RETRY_LIMIT"
+DOCUMENT_CHUNK_MAX_CHARS_ENV = "DOCUMENT_CHUNK_MAX_CHARS"
+DOCUMENT_CHUNK_OVERLAP_CHARS_ENV = "DOCUMENT_CHUNK_OVERLAP_CHARS"
 
 
 class WorkerSettings(BaseSettings):
@@ -56,6 +58,16 @@ class WorkerSettings(BaseSettings):
         alias=DOCUMENT_METADATA_TABLE_NAME_ENV,
     )
     worker_retry_limit: int = Field(default=5, ge=1, le=20, alias=WORKER_RETRY_LIMIT_ENV)
+    document_chunk_max_chars: int = Field(
+        default=1200,
+        ge=1,
+        alias=DOCUMENT_CHUNK_MAX_CHARS_ENV,
+    )
+    document_chunk_overlap_chars: int = Field(
+        default=200,
+        ge=0,
+        alias=DOCUMENT_CHUNK_OVERLAP_CHARS_ENV,
+    )
 
     ollama_base_url: str | None = Field(default=None, alias=OLLAMA_BASE_URL_ENV)
     ollama_embedding_model: str | None = Field(default=None, alias=OLLAMA_EMBEDDING_MODEL_ENV)

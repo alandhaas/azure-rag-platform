@@ -11,6 +11,8 @@
     "DOCUMENTS_CONTAINER_NAME": "documents",
     "DOCUMENT_METADATA_TABLE_NAME": "DocumentMetadata",
     "WORKER_RETRY_LIMIT": "5",
+    "DOCUMENT_CHUNK_MAX_CHARS": "1200",
+    "DOCUMENT_CHUNK_OVERLAP_CHARS": "200",
     "OLLAMA_BASE_URL": "http://localhost:11434",
     "OLLAMA_EMBEDDING_MODEL": "nomic-embed-text",
     "QDRANT_URL": "http://localhost:6333",

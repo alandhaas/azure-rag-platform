@@ -6,7 +6,9 @@ import json
 import logging
 import os
 import time
+from collections.abc import Sequence
 from http import HTTPStatus
+from typing import Protocol
 
 import azure.functions as func
 
@@ -24,13 +26,21 @@ app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 logger = logging.getLogger("rag_worker.functions")
 
 
+class _EmbeddedDocumentResult(Protocol):
+    @property
+    def document_id(self) -> str: ...
+
+    @property
+    def chunks(self) -> Sequence[object]: ...
+
+
 @app.queue_trigger(  # pyright: ignore[reportUnknownMemberType]
     arg_name="msg",
     queue_name="%INGESTION_QUEUE_NAME%",
     connection="AzureWebJobsStorage",
 )
-def ingest_document(msg: func.QueueMessage) -> None:
-    """Validate and log ingestion queue messages before pipeline processing exists."""
+async def ingest_document(msg: func.QueueMessage) -> None:
+    """Validate a queue message, then generate embeddings for document chunks."""
     started_at = time.perf_counter()
 
     try:
@@ -50,6 +60,13 @@ def ingest_document(msg: func.QueueMessage) -> None:
             "ingestion_command_received document_id=%s blob_uri=%s",
             command.document_id,
             command.blob_uri,
+            extra={"request_id": request_id},
+        )
+        embedded_document = await _run_document_embedding_pipeline(command)
+        logger.info(
+            "document_embeddings_generated document_id=%s chunk_count=%s",
+            embedded_document.document_id,
+            len(embedded_document.chunks),
             extra={"request_id": request_id},
         )
         logger.info(
@@ -102,3 +119,11 @@ def live_health(req: func.HttpRequest) -> func.HttpResponse:
 
 def _duration_ms(started_at: float) -> float:
     return (time.perf_counter() - started_at) * 1000
+
+
+async def _run_document_embedding_pipeline(
+    command: IngestionCommand,
+) -> _EmbeddedDocumentResult:
+    from rag_worker.dependencies import create_document_embedding_pipeline
+
+    return await create_document_embedding_pipeline().process(command)
