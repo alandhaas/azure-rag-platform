@@ -253,7 +253,7 @@ resource "azurerm_container_app" "api" {
       }
       env {
         name  = "QDRANT_URL"
-        value = "https://${azurerm_container_app.qdrant.latest_revision_fqdn}"
+        value = "http://${azurerm_container_app.qdrant.name}"
       }
       env {
         name  = "QDRANT_COLLECTION_NAME"
@@ -393,7 +393,7 @@ resource "azurerm_container_app" "worker" {
       }
       env {
         name  = "QDRANT_URL"
-        value = "https://${azurerm_container_app.qdrant.latest_revision_fqdn}"
+        value = "http://${azurerm_container_app.qdrant.name}"
       }
       env {
         name  = "QDRANT_COLLECTION_NAME"
