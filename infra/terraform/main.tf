@@ -13,6 +13,7 @@ locals {
   qdrant_environment_storage    = "qdrant-storage"
   qdrant_environment_volume     = "qdrant-data"
   qdrant_environment_mount_path = "/qdrant/storage"
+  qdrant_internal_url           = "http://${azurerm_container_app.qdrant.name}:80"
 
   common_tags = {
     project = var.project_name
@@ -253,7 +254,7 @@ resource "azurerm_container_app" "api" {
       }
       env {
         name  = "QDRANT_URL"
-        value = "http://${azurerm_container_app.qdrant.name}"
+        value = local.qdrant_internal_url
       }
       env {
         name  = "QDRANT_COLLECTION_NAME"
@@ -393,7 +394,7 @@ resource "azurerm_container_app" "worker" {
       }
       env {
         name  = "QDRANT_URL"
-        value = "http://${azurerm_container_app.qdrant.name}"
+        value = local.qdrant_internal_url
       }
       env {
         name  = "QDRANT_COLLECTION_NAME"
